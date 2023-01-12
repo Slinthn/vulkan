@@ -140,7 +140,7 @@ void vk_select_device(VkInstance instance,
   free(devices);
 }
 
-struct vk_graphics_families {
+struct vk_queue_family {
   uint32_t graphics;
   uint32_t present;
 };
@@ -152,7 +152,7 @@ struct vk_graphics_families {
  * @param surface Vulkan surface for present support
  * @return Enumerated device family queue indices
  */
-struct vk_graphics_families vk_get_family_queues(
+struct vk_queue_family vk_get_queue_family(
   VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
 
   uint32_t count;
@@ -163,7 +163,7 @@ struct vk_graphics_families vk_get_family_queues(
   
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, properties);
 
-  struct vk_graphics_families family = {0};
+  struct vk_queue_family family = {0};
 
   for (uint32_t i = 0; i < count; i++) {
     if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
@@ -191,7 +191,7 @@ struct vk_graphics_families vk_get_family_queues(
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
-  struct vk_graphics_families queue_families, VkDevice *device) {
+  struct vk_queue_family queue_families, VkDevice *device) {
 
   float queue_priority = 1;
 
@@ -206,11 +206,16 @@ VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
   queue_info[1].queueCount = 1;
   queue_info[1].pQueuePriorities = &queue_priority;
 
+  char *extensions[] = {
+    "VK_KHR_swapchain"
+  };
 
   VkDeviceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create_info.queueCreateInfoCount = SIZEOF_ARRAY(queue_info);
   create_info.pQueueCreateInfos = queue_info;
+  create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
+  create_info.ppEnabledExtensionNames = extensions;
   create_info.pEnabledFeatures = 0;  // TODO: change?
 
   return vkCreateDevice(physical_device, &create_info, 0, device);
@@ -242,6 +247,107 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
 }
 
 /**
+ * @brief Create a swapchain
+ * 
+ * @param device Vulkan device
+ * @param surface Vulkan surface
+ * @param queue_family Queue families to use
+ * @param swapchain Returns the created swapchain
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
+  struct vk_queue_family queue_family, VkSwapchainKHR *swapchain) {
+
+  // TODO: I am lazy to enumerate available formats
+  VkSurfaceFormatKHR surface_format = {
+    .format = VK_FORMAT_R8G8B8A8_SRGB,
+    .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+  };
+
+  // TODO: Mess around with other values. pg 2364
+  VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
+
+  // TODO: Again, error checking
+  VkExtent2D extent = {
+    .width = 1424,
+    .height = 720
+  };
+
+  VkSwapchainCreateInfoKHR create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  create_info.surface = surface;
+  create_info.minImageCount = 2;  // TODO: Incorrect
+  create_info.imageFormat = surface_format.format;
+  create_info.imageColorSpace = surface_format.colorSpace;
+  create_info.imageExtent = extent;
+  create_info.imageArrayLayers = 1;
+  create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+  if (queue_family.graphics == queue_family.present) {
+    create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  } else {
+    uint32_t families[2] = {queue_family.graphics, queue_family.present};
+
+    create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    create_info.queueFamilyIndexCount = 2;
+    create_info.pQueueFamilyIndices = families;
+  }
+
+  // TODO: preTransform probably wrong
+  create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+  create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  create_info.presentMode = present_mode;
+  create_info.clipped = 1;
+
+  return vkCreateSwapchainKHR(device, &create_info, 0, swapchain);
+}
+
+/**
+ * @brief Returns images of the swapchain
+ * 
+ * @param device Vulkan device
+ * @param swapchain Vulkan swapchain
+ * @param images Return malloc() allocated memory for array of images
+ * @param count Return number of images
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_get_swapchain_images(VkDevice device, VkSwapchainKHR swapchain,
+  VkImage **images, uint32_t *count) {
+
+  vkGetSwapchainImagesKHR(device, swapchain, count, 0);
+
+  *images = malloc(*count * sizeof(VkImage));
+  return vkGetSwapchainImagesKHR(device, swapchain,
+    count, *images);
+}
+
+/**
+ * @brief Creates an image view for the passed image
+ * 
+ * @param device Vulkan device
+ * @param image Image to use
+ * @param view Returns image view
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_get_image_view(VkDevice device, VkImage image, VkImageView *view) {
+
+  VkImageViewCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  create_info.image = image;
+  create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  create_info.format = VK_FORMAT_R8G8B8A8_SRGB;  // TODO: This is hardcoded!
+  create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  create_info.subresourceRange.levelCount = 1;
+  create_info.subresourceRange.layerCount = 1;
+
+  return vkCreateImageView(device, &create_info, 0, view);
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  * @param hinstance Windows HINSTNACE
@@ -264,15 +370,32 @@ void vk_init(HINSTANCE hinstance, HWND hwnd) {
   if (vk_win64(instance, hinstance, hwnd, &surface) != VK_SUCCESS)
     DebugBreak();
 
-  struct vk_graphics_families families = vk_get_family_queues(physical_device,
+  struct vk_queue_family queue_family = vk_get_queue_family(physical_device,
     surface);
 
   VkDevice device;
-  if (vk_create_device_and_queue(physical_device, families,
+  if (vk_create_device_and_queue(physical_device, queue_family,
     &device) != VK_SUCCESS)
     DebugBreak();  // TODO: Better error handling
   
+  // TODO: Put in own function
   VkQueue graphics_queue, present_queue;
-  vkGetDeviceQueue(device, families.graphics, 0, &queue);
-  vkGetDeviceQueue(device, families.present, 0, &queue);
+  vkGetDeviceQueue(device, queue_family.graphics, 0, &graphics_queue);
+  vkGetDeviceQueue(device, queue_family.present, 0, &present_queue);
+
+  VkSwapchainKHR swapchain;
+  if (vk_create_swapchain(device, surface, queue_family,
+    &swapchain) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  VkImage *images;
+  uint32_t image_count;
+  if (vk_get_swapchain_images(device, swapchain, &images,
+    &image_count) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  // TODO: Totally scuffed, idk how many images there really are!!
+  VkImageView views[2] = {0};
+  vk_get_image_view(device, images[0], &views[0]);
+  vk_get_image_view(device, images[1], &views[1]);
 }
