@@ -72,7 +72,9 @@ VkResult vk_create_instance(uint32_t app_version, VkInstance *instance) {
   };
 
   char *extensions[] = {
-    "VK_EXT_debug_utils"
+    "VK_EXT_debug_utils",
+    "VK_KHR_surface",
+    "VK_KHR_win32_surface"
   };
 
   VkDebugUtilsMessengerCreateInfoEXT messenger_create_info =
@@ -124,8 +126,9 @@ void vk_select_device(VkInstance instance,
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(instance, &device_count, 0);
 
-  VkPhysicalDevice *devices = malloc(device_count
-    * sizeof(VkPhysicalDevice));  // TODO: different memory allocation method?
+  VkPhysicalDevice *devices =
+    malloc(device_count * sizeof(VkPhysicalDevice));
+    // TODO: different memory allocation method?
 
   vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
@@ -133,40 +136,118 @@ void vk_select_device(VkInstance instance,
   VkPhysicalDevice selected = devices[0];
 
   *selected_device = selected;
+
+  free(devices);
+}
+
+struct vk_graphics_families {
+  uint32_t graphics;
+  uint32_t present;
+};
+
+/**
+ * @brief Get indicies for acceptable family queues for device
+ * 
+ * @param physical_device Physical device to enumerate
+ * @param surface Vulkan surface for present support
+ * @return Enumerated device family queue indices
+ */
+struct vk_graphics_families vk_get_family_queues(
+  VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
+
+  uint32_t count;
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, 0);
+
+  VkQueueFamilyProperties *properties =
+    malloc(count * sizeof(VkQueueFamilyProperties));
+  
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, properties);
+
+  struct vk_graphics_families family = {0};
+
+  for (uint32_t i = 0; i < count; i++) {
+    if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+      family.graphics = i;
+
+    VkBool32 present_support = 0;
+    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i,
+      surface, &present_support);
+
+    if (present_support)
+      family.present = i;
+  }
+
+  free(properties);
+
+  return family;
 }
 
 /**
  * @brief Create a Vulkan device and queue
  * 
  * @param physical_device The physical device to use to create the device
+ * @param queue_families The queue families to use
  * @param device Returns the created device
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
-  VkDevice *device) {
-
-  VkDeviceQueueCreateInfo queue_info = {0};
-  queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queue_info.queueFamilyIndex = 0;  // TODO: fuck it for now, but change later!
-  queue_info.queueCount = 1;
+  struct vk_graphics_families queue_families, VkDevice *device) {
 
   float queue_priority = 1;
-  queue_info.pQueuePriorities = &queue_priority;
+
+  VkDeviceQueueCreateInfo queue_info[2] = {0};
+  queue_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queue_info[0].queueFamilyIndex = queue_families.graphics;
+  queue_info[0].queueCount = 1;
+  queue_info[0].pQueuePriorities = &queue_priority;
+
+  queue_info[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queue_info[1].queueFamilyIndex = queue_families.present;
+  queue_info[1].queueCount = 1;
+  queue_info[1].pQueuePriorities = &queue_priority;
+
 
   VkDeviceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  create_info.queueCreateInfoCount = 1;
-  create_info.pQueueCreateInfos = &queue_info;
+  create_info.queueCreateInfoCount = SIZEOF_ARRAY(queue_info);
+  create_info.pQueueCreateInfos = queue_info;
   create_info.pEnabledFeatures = 0;  // TODO: change?
 
   return vkCreateDevice(physical_device, &create_info, 0, device);
 }
 
 /**
+ * @brief Link Vulkan to a HWND
+ * 
+ * @param instance Vulkan instance
+ * @param hinstance Windows HINSTANCE
+ * @param hwnd Windows HWND
+ * @param surface Returns a Vulkan surface
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
+  HWND hwnd, VkSurfaceKHR *surface) {
+
+  VkWin32SurfaceCreateInfoKHR create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+  create_info.hinstance = hinstance;
+  create_info.hwnd = hwnd;
+
+  // Extension function not loaded automatically
+  PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
+    (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance,
+    "vkCreateWin32SurfaceKHR");
+
+  return vkCreateWin32SurfaceKHR(instance, &create_info, 0, surface);
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
+ * @param hinstance Windows HINSTNACE
+ * @param hwnd Windows HWND
  */
-void vk_init(void) {
+void vk_init(HINSTANCE hinstance, HWND hwnd) {
 
   VkInstance instance;
   if (vk_create_instance(VK_API_VERSION_1_0, &instance) != VK_SUCCESS)
@@ -179,10 +260,19 @@ void vk_init(void) {
   VkPhysicalDevice physical_device;
   vk_select_device(instance, &physical_device);
 
+  VkSurfaceKHR surface;
+  if (vk_win64(instance, hinstance, hwnd, &surface) != VK_SUCCESS)
+    DebugBreak();
+
+  struct vk_graphics_families families = vk_get_family_queues(physical_device,
+    surface);
+
   VkDevice device;
-  if (vk_create_device_and_queue(physical_device, &device) != VK_SUCCESS)
+  if (vk_create_device_and_queue(physical_device, families,
+    &device) != VK_SUCCESS)
     DebugBreak();  // TODO: Better error handling
   
-  VkQueue queue;
-  vkGetDeviceQueue(device, 0, 0, &queue);  // TODO: 0 param probably wrong
+  VkQueue graphics_queue, present_queue;
+  vkGetDeviceQueue(device, families.graphics, 0, &queue);
+  vkGetDeviceQueue(device, families.present, 0, &queue);
 }

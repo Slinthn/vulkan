@@ -9,6 +9,9 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#define VK_USE_PLATFORM_WIN32_KHR
+
 #include <vulkan/vulkan.h>
 
 #pragma warning(pop)
@@ -49,18 +52,18 @@ LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
   return DefWindowProcA(window, msg, wparam, lparam);
 }
 
-int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
+int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   int show) {
 
   // TODO: Suppress unused parameter warnings
-  (void)prevInstance;
+  (void)prev_hinstance;
   (void)cmd;
   (void)show;
 
   // Register window class
   WNDCLASSEXA wc = {0};
   wc.cbSize = sizeof(wc);
-  wc.hInstance = instance;
+  wc.hInstance = hinstance;
   wc.lpfnWndProc = window_message_proc;
   wc.lpszClassName = "12/01/2023Slinapp";
 
@@ -68,11 +71,11 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
 
   struct win64_state winstate = {0};
 
-  HWND window = CreateWindowExA(0, wc.lpszClassName, "App",
+  HWND hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, instance, &winstate);
+    CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hinstance, &winstate);
 
-  vk_init();
+  vk_init(hinstance, hwnd);
 
   uint64_t counter;
   uint64_t frequency;
@@ -81,7 +84,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
 
   while (1) {
     MSG msg;
-    while (PeekMessageA(&msg, window, 0, 0, PM_REMOVE)) {
+    while (PeekMessageA(&msg, hwnd, 0, 0, PM_REMOVE)) {
       TranslateMessage(&msg);
       DispatchMessageA(&msg);
     }
