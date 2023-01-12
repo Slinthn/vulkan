@@ -13,6 +13,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
   const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
   void *user_data) {
 
+  // TODO: Suppress warnings
+  (void)severity;
+  (void)type;
+  (void)user_data;
+
   OutputDebugString(callback_data->pMessage);
   OutputDebugString("\n");
 
@@ -20,8 +25,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 }
 
 /**
- * @brief 
+ * @brief Creates and populates a VkDebugUtilsMessengerCreateInfoEXT structure
  * 
+ * @return A populated VkDebugUtilsMessengerCreateInfoEXT structure
  */
 VkDebugUtilsMessengerCreateInfoEXT vk_populate_debug_struct(void) {
 
@@ -103,6 +109,30 @@ VkResult vk_create_debug_messenger(VkInstance instance,
 }
 
 /**
+ * @brief Enumerates and selects a physical device
+ * 
+ * @param instance A valid Vulkan instance
+ * @param selected_device Returns the selected physical device
+ * @return VkResult Vulkan errors
+ */
+void vk_select_device(VkInstance instance,
+  VkPhysicalDevice *selected_device) {
+
+  uint32_t device_count = 0;
+  vkEnumeratePhysicalDevices(instance, &device_count, 0);
+
+  VkPhysicalDevice *devices = malloc(device_count
+    * sizeof(VkPhysicalDevice));  // TODO: different memory allocation method?
+
+  vkEnumeratePhysicalDevices(instance, &device_count, devices);
+
+  // TODO: Better checks
+  VkPhysicalDevice selected = devices[0];
+
+  *selected_device = selected;
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  */
@@ -115,4 +145,7 @@ void vk_init(void) {
   VkDebugUtilsMessengerEXT debug_messenger;
   if (vk_create_debug_messenger(instance, &debug_messenger) != VK_SUCCESS)
     DebugBreak();  // TODO: Better error handling
+
+  VkPhysicalDevice physical_device;
+  vk_select_device(instance, &physical_device);
 }

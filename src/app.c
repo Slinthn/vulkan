@@ -52,7 +52,7 @@ LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
   int show) {
 
-  // Suppress unused parameter warnings
+  // TODO: Suppress unused parameter warnings
   (void)prevInstance;
   (void)cmd;
   (void)show;
