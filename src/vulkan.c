@@ -18,8 +18,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
   (void)type;
   (void)user_data;
 
-  OutputDebugString(callback_data->pMessage);
-  OutputDebugString("\n");
+  if (severity & (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)) {
+    OutputDebugString(callback_data->pMessage);
+    OutputDebugString("\n");
+  }
 
   return VK_FALSE;
 }
@@ -133,6 +136,33 @@ void vk_select_device(VkInstance instance,
 }
 
 /**
+ * @brief Create a Vulkan device and queue
+ * 
+ * @param physical_device The physical device to use to create the device
+ * @param device Returns the created device
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
+  VkDevice *device) {
+
+  VkDeviceQueueCreateInfo queue_info = {0};
+  queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queue_info.queueFamilyIndex = 0;  // TODO: fuck it for now, but change later!
+  queue_info.queueCount = 1;
+
+  float queue_priority = 1;
+  queue_info.pQueuePriorities = &queue_priority;
+
+  VkDeviceCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  create_info.queueCreateInfoCount = 1;
+  create_info.pQueueCreateInfos = &queue_info;
+  create_info.pEnabledFeatures = 0;  // TODO: change?
+
+  return vkCreateDevice(physical_device, &create_info, 0, device);
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  */
@@ -148,4 +178,11 @@ void vk_init(void) {
 
   VkPhysicalDevice physical_device;
   vk_select_device(instance, &physical_device);
+
+  VkDevice device;
+  if (vk_create_device_and_queue(physical_device, &device) != VK_SUCCESS)
+    DebugBreak();  // TODO: Better error handling
+  
+  VkQueue queue;
+  vkGetDeviceQueue(device, 0, 0, &queue);  // TODO: 0 param probably wrong
 }
