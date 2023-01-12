@@ -1,11 +1,22 @@
+/**
+ * @brief Main entrypoint of the application
+ * 
+ */
+
 #pragma warning(push, 0)
-//#pragma warning(disable : 5045)
 
 #include <windows.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <vulkan/vulkan.h>
 
 #pragma warning(pop)
+
+// TODO create its own file
+#define SIZEOF_ARRAY(x) (sizeof(x) / sizeof((x)[0]))
+
+#include "vulkan.c"
 
 struct win64_state {
   uint64_t unused;
@@ -13,6 +24,7 @@ struct win64_state {
 
 LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
   LPARAM lparam) {
+
 #if 0
   struct win64_state *state =
     (struct win64_state *)GetWindowLongPtrA(window, GWLP_USERDATA);
@@ -33,12 +45,13 @@ LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
     ExitProcess(0);
   } break;
   }
-  
+
   return DefWindowProcA(window, msg, wparam, lparam);
 }
 
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
   int show) {
+
   // Suppress unused parameter warnings
   (void)prevInstance;
   (void)cmd;
@@ -49,7 +62,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
   wc.cbSize = sizeof(wc);
   wc.hInstance = instance;
   wc.lpfnWndProc = window_message_proc;
-  wc.lpszClassName = "24/06/2022Slinapp";
+  wc.lpszClassName = "12/01/2023Slinapp";
 
   RegisterClassExA(&wc);
 
@@ -58,7 +71,9 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
   HWND window = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
     CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, instance, &winstate);
-  
+
+  vk_init();
+
   uint64_t counter;
   uint64_t frequency;
   QueryPerformanceCounter((LARGE_INTEGER *)&counter);
@@ -71,7 +86,6 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmd,
       DispatchMessageA(&msg);
     }
 
-    // Sleep if time is remaining
     int32_t tosleep;
     do {
       uint64_t newcounter;
