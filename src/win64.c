@@ -3,6 +3,8 @@
  * 
  */
 
+#define APP_WIN64
+
 #pragma warning(push, 0)
 
 #include <windows.h>
@@ -16,14 +18,49 @@
 
 #pragma warning(pop)
 
-// TODO create its own file
+// TODO: create its own file
 #define SIZEOF_ARRAY(x) (sizeof(x) / sizeof((x)[0]))
-
-#include "vulkan.c"
+#define ALIGN_UP(x, alignment) (((x) + ((alignment) - 1)) & ~((alignment) - 1))
 
 struct win64_state {
-  uint64_t unused;
+  uint64_t unused;  // TODO: Unused
 };
+
+struct sln_app {
+  HINSTANCE hinstance;
+  HWND hwnd;
+};
+
+#include "graphics/vulkan.c"
+#include "game.c"
+
+#if 0
+struct sln_file {
+  void *data;
+  uint64_t size;
+};
+
+DWORD sln_read_file(char *filename, struct sln_file *file) {
+
+  HANDLE filehandle = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
+    0, OPEN_EXISTING, 0, 0);
+
+  if (filehandle == INVALID_HANDLE_VALUE)
+    return GetLastError();  // TODO: Only in debug?
+
+  GetFileSizeEx(filehandle, (PLARGE_INTEGER)&file->size);
+
+  file->data = malloc(file->size);  // TODO: Better allocation?
+
+  ReadFile(filehandle, file->data, file->size, 0, 0);
+
+  return GetLastError();  // TODO: Only in debug?
+}
+
+void sln_close_file(void) {
+
+}
+#endif
 
 LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
   LPARAM lparam) {
@@ -60,10 +97,13 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   (void)cmd;
   (void)show;
 
+  struct sln_app app = {0};
+  app.hinstance = hinstance;
+
   // Register window class
   WNDCLASSEXA wc = {0};
   wc.cbSize = sizeof(wc);
-  wc.hInstance = hinstance;
+  wc.hInstance = app.hinstance;
   wc.lpfnWndProc = window_message_proc;
   wc.lpszClassName = "12/01/2023Slinapp";
 
@@ -71,20 +111,20 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
   struct win64_state winstate = {0};
 
-  HWND hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
+  app.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
     CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hinstance, &winstate);
-
-  vk_init(hinstance, hwnd);
 
   uint64_t counter;
   uint64_t frequency;
   QueryPerformanceCounter((LARGE_INTEGER *)&counter);
   QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
 
+  sln_init(app);
+
   while (1) {
     MSG msg;
-    while (PeekMessageA(&msg, hwnd, 0, 0, PM_REMOVE)) {
+    while (PeekMessageA(&msg, app.hwnd, 0, 0, PM_REMOVE)) {
       TranslateMessage(&msg);
       DispatchMessageA(&msg);
     }

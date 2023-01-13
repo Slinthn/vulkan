@@ -348,12 +348,38 @@ VkResult vk_get_image_view(VkDevice device, VkImage image, VkImageView *view) {
 }
 
 /**
+ * @brief Creates a shader module
+ * 
+ * @param device Vulkan device
+ * @param code Shader bytecode
+ * @param size Shader bytecode size in bytes
+ * @param module Returns the created shader module
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_shader_module(VkDevice device, void *code, uint64_t size,
+  VkShaderModule *module) {
+
+  VkShaderModuleCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  create_info.codeSize = size;
+  create_info.pCode = code;
+
+  return vkCreateShaderModule(device, &create_info, 0, module);
+}
+struct vk_state {
+  VkDevice device;
+};
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  * @param hinstance Windows HINSTNACE
  * @param hwnd Windows HWND
+ * @return struct vk_state A structure containing Vulkan details
  */
-void vk_init(HINSTANCE hinstance, HWND hwnd) {
+struct vk_state vk_init(struct sln_app app) {
+
+  struct vk_state state = {0};
 
   VkInstance instance;
   if (vk_create_instance(VK_API_VERSION_1_0, &instance) != VK_SUCCESS)
@@ -367,35 +393,39 @@ void vk_init(HINSTANCE hinstance, HWND hwnd) {
   vk_select_device(instance, &physical_device);
 
   VkSurfaceKHR surface;
-  if (vk_win64(instance, hinstance, hwnd, &surface) != VK_SUCCESS)
+
+#ifdef APP_WIN64
+  if (vk_win64(instance, app.hinstance, app.hwnd, &surface) != VK_SUCCESS)
     DebugBreak();
+#endif
 
   struct vk_queue_family queue_family = vk_get_queue_family(physical_device,
     surface);
 
-  VkDevice device;
   if (vk_create_device_and_queue(physical_device, queue_family,
-    &device) != VK_SUCCESS)
+    &state.device) != VK_SUCCESS)
     DebugBreak();  // TODO: Better error handling
   
   // TODO: Put in own function
   VkQueue graphics_queue, present_queue;
-  vkGetDeviceQueue(device, queue_family.graphics, 0, &graphics_queue);
-  vkGetDeviceQueue(device, queue_family.present, 0, &present_queue);
+  vkGetDeviceQueue(state.device, queue_family.graphics, 0, &graphics_queue);
+  vkGetDeviceQueue(state.device, queue_family.present, 0, &present_queue);
 
   VkSwapchainKHR swapchain;
-  if (vk_create_swapchain(device, surface, queue_family,
+  if (vk_create_swapchain(state.device, surface, queue_family,
     &swapchain) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   VkImage *images;
   uint32_t image_count;
-  if (vk_get_swapchain_images(device, swapchain, &images,
+  if (vk_get_swapchain_images(state.device, swapchain, &images,
     &image_count) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   // TODO: Totally scuffed, idk how many images there really are!!
   VkImageView views[2] = {0};
-  vk_get_image_view(device, images[0], &views[0]);
-  vk_get_image_view(device, images[1], &views[1]);
+  vk_get_image_view(state.device, images[0], &views[0]);
+  vk_get_image_view(state.device, images[1], &views[1]);
+
+  return state;
 }
