@@ -371,6 +371,21 @@ struct vk_state {
 };
 
 /**
+ * @brief Create a Vulkan pipeline layout
+ * 
+ * @param device Vulkan device
+ * @param pipeline Returns the created pipeline layout
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_pipeline(VkDevice device, VkPipelineLayout *pipeline) {
+
+  VkPipelineLayoutCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+  return vkCreatePipelineLayout(device, &create_info, 0, pipeline);
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  * @param hinstance Windows HINSTNACE
@@ -426,6 +441,10 @@ struct vk_state vk_init(struct sln_app app) {
   VkImageView views[2] = {0};
   vk_get_image_view(state.device, images[0], &views[0]);
   vk_get_image_view(state.device, images[1], &views[1]);
+
+  VkPipelineLayout pipeline;
+  if (vk_create_pipeline(state.device, &pipeline) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
 
   return state;
 }
