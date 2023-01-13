@@ -35,21 +35,27 @@ void sln_init(struct sln_app app) {
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
-  VkPipelineShaderStageCreateInfo vertex_stage_info = {0};
-  vertex_stage_info.sType =
+
+  VkPipelineShaderStageCreateInfo vertex_stage = {0};
+  vertex_stage.sType =
     VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 
-  vertex_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vertex_stage_info.pName = "main";
+  vertex_stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vertex_stage.pName = "main";
   vk_create_shader_module(vulkan.device, vertex_file.data,
-    vertex_file.allocated_size, &vertex_stage_info.module);
+    vertex_file.allocated_size, &vertex_stage.module);
 
-  VkPipelineShaderStageCreateInfo fragment_stage_info = {0};
-  fragment_stage_info.sType =
+  VkPipelineShaderStageCreateInfo fragment_stage = {0};
+  fragment_stage.sType =
     VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 
-  fragment_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  fragment_stage_info.pName = "main";
+  fragment_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  fragment_stage.pName = "main";
   vk_create_shader_module(vulkan.device, fragment_file.data,
-    fragment_file.allocated_size, &fragment_stage_info.module);
+    fragment_file.allocated_size, &fragment_stage.module);
+
+
+  VkPipeline pipeline;
+  vk_create_graphics_pipeline(vulkan.device, vertex_stage, fragment_stage,
+    &pipeline);
 }

@@ -377,7 +377,7 @@ struct vk_state {
  * @param pipeline Returns the created pipeline layout
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_pipeline(VkDevice device, VkPipelineLayout *pipeline) {
+VkResult vk_create_pipeline_layout(VkDevice device, VkPipelineLayout *pipeline) {
 
   VkPipelineLayoutCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -421,6 +421,121 @@ VkResult vk_create_render_pass(VkDevice device, VkRenderPass *render_pass) {
   create_info.pSubpasses = subpasses;
 
   return vkCreateRenderPass(device, &create_info, 0, render_pass);
+}
+
+/**
+ * @brief Creates a Vulkan graphics pipeline
+ * 
+ * @param device Vulkan device
+ * @param vertex_stage Vertex shader
+ * @param fragment_stage Fragment shader
+ * @param pipeline Returns the created graphics pipeline
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_graphics_pipeline(VkDevice device,
+  VkPipelineShaderStageCreateInfo vertex_stage,
+  VkPipelineShaderStageCreateInfo fragment_stage, VkPipeline *pipeline) {
+
+  // TODO: This function is too big. Split into smaller chunks
+  VkPipelineLayout pipeline_layout;
+  if (vk_create_pipeline_layout(device, &pipeline_layout) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  VkRenderPass render_pass;
+  if (vk_create_render_pass(device, &render_pass) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  VkPipelineShaderStageCreateInfo stages[] =
+    {vertex_stage, fragment_stage};
+
+  VkPipelineVertexInputStateCreateInfo vertex_state = {0};
+  vertex_state.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  
+  vertex_state.vertexBindingDescriptionCount = 0;
+  vertex_state.vertexAttributeDescriptionCount = 0;  // TODO: Temporary
+
+  VkPipelineInputAssemblyStateCreateInfo input_assemble = {0};
+  input_assemble.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  input_assemble.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  input_assemble.primitiveRestartEnable = 0;
+
+  VkViewport viewport = {0};
+  viewport.x = 0;
+  viewport.y = 0;
+  viewport.width = 1424;
+  viewport.height = 720;
+  viewport.minDepth = 0;
+  viewport.maxDepth = 1;
+
+  VkRect2D scissor = {0};
+  scissor.offset.x = 0;
+  scissor.offset.y = 0;
+  scissor.extent.width = 1424;
+  scissor.extent.height = 720;
+
+  VkPipelineViewportStateCreateInfo viewport_state = {0};
+  viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  viewport_state.viewportCount = 1;
+  viewport_state.pViewports = &viewport;
+  viewport_state.scissorCount = 1;
+  viewport_state.pScissors = &scissor;
+
+  VkPipelineRasterizationStateCreateInfo rasterisation = {0};
+  rasterisation.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+
+  rasterisation.depthClampEnable = 0;
+  rasterisation.rasterizerDiscardEnable = 0;
+  rasterisation.polygonMode = VK_POLYGON_MODE_FILL;  // TODO: Cool parameter
+  rasterisation.lineWidth = 1;
+  rasterisation.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterisation.frontFace = VK_FRONT_FACE_CLOCKWISE;  // TODO: Issue in future?
+  rasterisation.depthBiasEnable = 0;
+
+  VkPipelineMultisampleStateCreateInfo multisample = {0};
+  multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  multisample.sampleShadingEnable = 0;
+
+  VkPipelineColorBlendAttachmentState blend_attachments[1] = {0};
+  blend_attachments[0].blendEnable = 0;
+  blend_attachments[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT
+    | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
+    | VK_COLOR_COMPONENT_A_BIT;
+
+  VkPipelineColorBlendStateCreateInfo colour_blend = {0};
+  colour_blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  colour_blend.logicOpEnable = 0;
+  colour_blend.attachmentCount = SIZEOF_ARRAY(blend_attachments);
+  colour_blend.pAttachments = blend_attachments;
+
+  VkDynamicState dynamic_states[] = {
+    VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR
+  };
+
+  VkPipelineDynamicStateCreateInfo dynamic_state = {0};
+  dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamic_state.dynamicStateCount = SIZEOF_ARRAY(dynamic_states);
+  dynamic_state.pDynamicStates = dynamic_states;
+
+  VkGraphicsPipelineCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  create_info.stageCount = 2;
+  create_info.pStages = stages;
+  create_info.pVertexInputState = &vertex_state;
+  create_info.pInputAssemblyState = &input_assemble;
+  create_info.pViewportState = &viewport_state;
+  create_info.pRasterizationState = &rasterisation;
+  create_info.pMultisampleState = &multisample;
+  create_info.pColorBlendState = &colour_blend;
+  create_info.pDynamicState = &dynamic_state;
+  create_info.layout = pipeline_layout;
+  create_info.renderPass = render_pass;
+  create_info.subpass = 0;
+
+  return vkCreateGraphicsPipelines(device, VK_NULL_HANDLE,
+    1, &create_info, 0, pipeline);
 }
 
 /**
@@ -479,14 +594,6 @@ struct vk_state vk_init(struct sln_app app) {
   VkImageView views[2] = {0};
   vk_get_image_view(state.device, images[0], &views[0]);
   vk_get_image_view(state.device, images[1], &views[1]);
-
-  VkPipelineLayout pipeline;
-  if (vk_create_pipeline(state.device, &pipeline) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
-
-  VkRenderPass render_pass;
-  if (vk_create_render_pass(state.device, &render_pass) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
 
   return state;
 }
