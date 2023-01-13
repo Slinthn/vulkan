@@ -385,6 +385,37 @@ VkResult vk_create_pipeline(VkDevice device, VkPipelineLayout *pipeline) {
   return vkCreatePipelineLayout(device, &create_info, 0, pipeline);
 }
 
+VkResult vk_create_render_pass(VkDevice device, VkRenderPass *render_pass) {
+
+  VkAttachmentDescription attachments[1] = {0};
+  attachments[0].format = VK_FORMAT_R8G8B8A8_SRGB;
+  attachments[0].samples = 1;
+  attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+  VkAttachmentReference attachment_references[1] = {0};
+  attachment_references[0].attachment = 0;
+  attachment_references[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+  VkSubpassDescription subpasses[1] = {0};
+  subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpasses[0].colorAttachmentCount = SIZEOF_ARRAY(attachment_references);
+  subpasses[0].pColorAttachments = attachment_references;
+
+  VkRenderPassCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  create_info.attachmentCount = SIZEOF_ARRAY(attachments);
+  create_info.pAttachments = attachments;
+  create_info.subpassCount = SIZEOF_ARRAY(subpasses);
+  create_info.pSubpasses = subpasses;
+
+  return vkCreateRenderPass(device, &create_info, 0, render_pass);
+}
+
 /**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
@@ -444,6 +475,10 @@ struct vk_state vk_init(struct sln_app app) {
 
   VkPipelineLayout pipeline;
   if (vk_create_pipeline(state.device, &pipeline) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  VkRenderPass render_pass;
+  if (vk_create_render_pass(state.device, &render_pass) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   return state;
