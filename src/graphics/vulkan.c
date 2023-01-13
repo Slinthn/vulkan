@@ -143,6 +143,8 @@ void vk_select_device(VkInstance instance,
 struct vk_queue_family {
   uint32_t graphics;
   uint32_t present;
+  VkImageView views[2];
+  VkFramebuffer framebuffers[2];
 };
 
 /**
@@ -366,8 +368,12 @@ VkResult vk_create_shader_module(VkDevice device, void *code, uint64_t size,
 
   return vkCreateShaderModule(device, &create_info, 0, module);
 }
+
 struct vk_state {
   VkDevice device;
+  VkRenderPass render_pass;
+  VkImageView views[2];
+  VkFramebuffer framebuffers[2];
 };
 
 /**
@@ -434,15 +440,12 @@ VkResult vk_create_render_pass(VkDevice device, VkRenderPass *render_pass) {
  */
 VkResult vk_create_graphics_pipeline(VkDevice device,
   VkPipelineShaderStageCreateInfo vertex_stage,
-  VkPipelineShaderStageCreateInfo fragment_stage, VkPipeline *pipeline) {
+  VkPipelineShaderStageCreateInfo fragment_stage,
+  VkRenderPass render_pass, VkPipeline *pipeline) {
 
   // TODO: This function is too big. Split into smaller chunks
   VkPipelineLayout pipeline_layout;
   if (vk_create_pipeline_layout(device, &pipeline_layout) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
-
-  VkRenderPass render_pass;
-  if (vk_create_render_pass(device, &render_pass) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   VkPipelineShaderStageCreateInfo stages[] =
@@ -539,6 +542,30 @@ VkResult vk_create_graphics_pipeline(VkDevice device,
 }
 
 /**
+ * @brief Create a Vulkan framebuffer
+ * 
+ * @param device Vulkan device
+ * @param render_pass Render pass
+ * @param image_view Image view to use
+ * @param framebuffer Returns the framebuffer
+ * @return VkResult 
+ */
+VkResult vk_create_framebuffer(VkDevice device, VkRenderPass render_pass,
+  VkImageView image_view, VkFramebuffer *framebuffer) {
+
+  VkFramebufferCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  create_info.renderPass = render_pass;
+  create_info.attachmentCount = 1;
+  create_info.pAttachments = &image_view;
+  create_info.width = 1424;  // TODO: Hardcoded!
+  create_info.height = 720;  // TODO: Hardcoded!
+  create_info.layers = 1;
+
+  return vkCreateFramebuffer(device, &create_info, 0, framebuffer);
+}
+
+/**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
  * @param hinstance Windows HINSTNACE
@@ -590,10 +617,19 @@ struct vk_state vk_init(struct sln_app app) {
     &image_count) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
+  // TODO: Put in for loop?
   // TODO: Totally scuffed, idk how many images there really are!!
-  VkImageView views[2] = {0};
-  vk_get_image_view(state.device, images[0], &views[0]);
-  vk_get_image_view(state.device, images[1], &views[1]);
+  vk_get_image_view(state.device, images[0], &state.views[0]);
+  vk_get_image_view(state.device, images[1], &state.views[1]);
+
+  if (vk_create_render_pass(state.device, &state.render_pass) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  vk_create_framebuffer(state.device, state.render_pass, state.views[0],
+    &state.framebuffers[0]);
+
+  vk_create_framebuffer(state.device, state.render_pass, state.views[1],
+    &state.framebuffers[1]);
 
   return state;
 }

@@ -57,5 +57,5 @@ void sln_init(struct sln_app app) {
 
   VkPipeline pipeline;
   vk_create_graphics_pipeline(vulkan.device, vertex_stage, fragment_stage,
-    &pipeline);
+    vulkan.render_pass, &pipeline);
 }
