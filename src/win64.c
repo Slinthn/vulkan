@@ -7,6 +7,8 @@
 
 #pragma warning(push, 0)
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <windows.h>
 #include <math.h>
 #include <stdint.h>
@@ -18,68 +20,26 @@
 
 #pragma warning(pop)
 
-// TODO: create its own file
-#define SIZEOF_ARRAY(x) (sizeof(x) / sizeof((x)[0]))
-#define ALIGN_UP(x, alignment) (((x) + ((alignment) - 1)) & ~((alignment) - 1))
-
-struct win64_state {
-  uint64_t unused;  // TODO: Unused
-};
-
 struct sln_app {
   HINSTANCE hinstance;
   HWND hwnd;
 };
 
-#include "graphics/vulkan.c"
 #include "game.c"
 
-#if 0
-struct sln_file {
-  void *data;
-  uint64_t size;
-};
-
-DWORD sln_read_file(char *filename, struct sln_file *file) {
-
-  HANDLE filehandle = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
-    0, OPEN_EXISTING, 0, 0);
-
-  if (filehandle == INVALID_HANDLE_VALUE)
-    return GetLastError();  // TODO: Only in debug?
-
-  GetFileSizeEx(filehandle, (PLARGE_INTEGER)&file->size);
-
-  file->data = malloc(file->size);  // TODO: Better allocation?
-
-  ReadFile(filehandle, file->data, file->size, 0, 0);
-
-  return GetLastError();  // TODO: Only in debug?
-}
-
-void sln_close_file(void) {
-
-}
-#endif
-
+/**
+ * @brief Window message handler. Called when something happens to the window
+ * 
+ * @param window Window affected
+ * @param msg Message type
+ * @param wparam First parameter
+ * @param lparam Second parameter
+ * @return LRESULT Return code
+ */
 LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
   LPARAM lparam) {
 
-#if 0
-  struct win64_state *state =
-    (struct win64_state *)GetWindowLongPtrA(window, GWLP_USERDATA);
-#endif
-
   switch (msg) {
-  case WM_CREATE: {
-    // Set the windows state variable pointer as userdata in the window
-    CREATESTRUCT *createstruct = (CREATESTRUCT *)lparam;
-    SetWindowLongPtrA(window, GWLP_USERDATA,
-      (LONG_PTR)createstruct->lpCreateParams);
-
-    return 1;
-  }
-
   case WM_CLOSE:
   case WM_DESTROY: {
     ExitProcess(0);
@@ -88,14 +48,19 @@ LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
 
   return DefWindowProcA(window, msg, wparam, lparam);
 }
-
+#pragma warning(disable:4100)
+/**
+ * @brief Entrypoint for WIN64 builds
+ * 
+ * @param hinstance Instance of the program
+ * @param prev_hinstance Deprecated
+ * @param cmd Command line arguments
+ * @param show Show mode (in exe properties)
+ * @return int Return code
+ */
 int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   int show) {
-
-  // TODO: Suppress unused parameter warnings
-  (void)prev_hinstance;
-  (void)cmd;
-  (void)show;
+#pragma warning(default:4100)
 
   struct sln_app app = {0};
   app.hinstance = hinstance;
@@ -109,11 +74,9 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
   RegisterClassExA(&wc);
 
-  struct win64_state winstate = {0};
-
   app.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hinstance, &winstate);
+    CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hinstance, 0);
 
   uint64_t counter;
   uint64_t frequency;
@@ -129,6 +92,9 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
       DispatchMessageA(&msg);
     }
 
+    sln_update();
+
+#if 0
     int32_t tosleep;
     do {
       uint64_t newcounter;
@@ -136,6 +102,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
       float delta_seconds = ((newcounter - counter) / (float)frequency);
       tosleep = (int32_t)floorf((1 / 60.0f - delta_seconds) * 1000.0f);
     } while (tosleep > 0);
+#endif
 
     QueryPerformanceCounter((LARGE_INTEGER *)&counter);
   }

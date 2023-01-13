@@ -3,20 +3,22 @@
  * 
  */
 
+#pragma warning(disable:4100)
 /**
- * @brief Vulkan debug messages. Should not be called directly
+ * @brief Vulkan debug message handler
  * 
+ * @param severity Severity of the message
+ * @param type Type of message
+ * @param callback_data Data of message
+ * @param user_data User-defined data (when initialising Vulkan)
+ * @return VKAPI_ATTR Return code
  */
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
   VkDebugUtilsMessageSeverityFlagBitsEXT severity,
   VkDebugUtilsMessageTypeFlagsEXT type,
   const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
   void *user_data) {
-
-  // TODO: Suppress warnings
-  (void)severity;
-  (void)type;
-  (void)user_data;
+#pragma warning(default:4100)
 
   if (severity & (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)) {
@@ -106,7 +108,7 @@ VkResult vk_create_debug_messenger(VkInstance instance,
 
   // Extension function not loaded automatically
   PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
-    (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance,
+    (PFN_vkCreateDebugUtilsMessengerEXT)(void *)vkGetInstanceProcAddr(instance,
     "vkCreateDebugUtilsMessengerEXT");
 
   return vkCreateDebugUtilsMessengerEXT(instance, &create_info,
@@ -240,7 +242,7 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
 
   // Extension function not loaded automatically
   PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
-    (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance,
+    (PFN_vkCreateWin32SurfaceKHR)(void *)vkGetInstanceProcAddr(instance,
     "vkCreateWin32SurfaceKHR");
 
   return vkCreateWin32SurfaceKHR(instance, &create_info, 0, surface);
@@ -252,15 +254,17 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
  * @param device Vulkan device
  * @param surface Vulkan surface
  * @param queue_family Queue families to use
+ * @param format Swapchain colour format
  * @param swapchain Returns the created swapchain
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
-  struct vk_queue_family queue_family, VkSwapchainKHR *swapchain) {
+  struct vk_queue_family queue_family, VkFormat format,
+  VkSwapchainKHR *swapchain) {
 
   // TODO: I am lazy to enumerate available formats
   VkSurfaceFormatKHR surface_format = {
-    .format = VK_FORMAT_R8G8B8A8_SRGB,
+    .format = format,
     .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
   };
 
@@ -276,7 +280,7 @@ VkResult vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
   VkSwapchainCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = surface;
-  create_info.minImageCount = 2;  // TODO: Incorrect
+  create_info.minImageCount = 2;  // TODO: Check swapchain support for this?
   create_info.imageFormat = surface_format.format;
   create_info.imageColorSpace = surface_format.colorSpace;
   create_info.imageExtent = extent;
@@ -317,6 +321,7 @@ VkResult vk_get_swapchain_images(VkDevice device, VkSwapchainKHR swapchain,
   vkGetSwapchainImagesKHR(device, swapchain, count, 0);
 
   *images = malloc(*count * sizeof(VkImage));
+
   return vkGetSwapchainImagesKHR(device, swapchain,
     count, *images);
 }
@@ -326,16 +331,18 @@ VkResult vk_get_swapchain_images(VkDevice device, VkSwapchainKHR swapchain,
  * 
  * @param device Vulkan device
  * @param image Image to use
+ * @param format Swapchain colour format
  * @param view Returns image view
  * @return VkResult Vulkan errors
  */
-VkResult vk_get_image_view(VkDevice device, VkImage image, VkImageView *view) {
+VkResult vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
+  VkImageView *view) {
 
   VkImageViewCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   create_info.image = image;
   create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  create_info.format = VK_FORMAT_R8G8B8A8_SRGB;  // TODO: This is hardcoded!
+  create_info.format = format;
   create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
   create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
   create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -377,6 +384,7 @@ struct vk_state {
   VkCommandBuffer command_buffer;
   VkQueue graphics_queue, present_queue;
   VkSwapchainKHR swapchain;
+  VkPipeline pipeline;
 };
 
 /**
@@ -398,13 +406,15 @@ VkResult vk_create_pipeline_layout(VkDevice device, VkPipelineLayout *pipeline) 
  * @brief Create a Vulkan render pass
  * 
  * @param device Vulkan device
+ * @param format Swapchain colour format
  * @param render_pass Returns the created render pass
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_render_pass(VkDevice device, VkRenderPass *render_pass) {
+VkResult vk_create_render_pass(VkDevice device, VkFormat format,
+  VkRenderPass *render_pass) {
 
   VkAttachmentDescription attachments[1] = {0};
-  attachments[0].format = VK_FORMAT_R8G8B8A8_SRGB;
+  attachments[0].format = format;
   attachments[0].samples = 1;
   attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -568,6 +578,14 @@ VkResult vk_create_framebuffer(VkDevice device, VkRenderPass render_pass,
   return vkCreateFramebuffer(device, &create_info, 0, framebuffer);
 }
 
+/**
+ * @brief Creates a Vulkan command pool
+ * 
+ * @param device Vulkan device
+ * @param queue_family Queue family to use
+ * @param command_pool Returns the created command pool
+ * @return VkResult Vulkan errors
+ */
 VkResult vk_create_command_pool(VkDevice device,
   struct vk_queue_family queue_family, VkCommandPool *command_pool) {
 
@@ -579,6 +597,14 @@ VkResult vk_create_command_pool(VkDevice device,
   return vkCreateCommandPool(device, &create_info, 0, command_pool);
 }
 
+/**
+ * @brief Creates a Vulkan command buffer
+ * 
+ * @param device Vulkan device
+ * @param command_pool Command pool to use
+ * @param command_buffer Returns the created command buffer
+ * @return VkResult Vulkan errors
+ */
 VkResult vk_create_command_buffer(VkDevice device,
   VkCommandPool command_pool, VkCommandBuffer *command_buffer) {
 
@@ -591,6 +617,14 @@ VkResult vk_create_command_buffer(VkDevice device,
   return vkAllocateCommandBuffers(device, &allocate_info, command_buffer);
 }
 
+/**
+ * @brief Call before rendering. Setup rendering frame
+ * 
+ * @param command_buffer Graphics command buffer
+ * @param framebuffer Current framebuffer
+ * @param render_pass Render pass to use
+ * @param pipeline Pipeline to use
+ */
 void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
   VkRenderPass render_pass, VkPipeline pipeline) {
 
@@ -641,6 +675,14 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
   vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 }
 
+/**
+ * @brief Call after rendering is complete. Finishes and presents frame
+ * 
+ * @param command_buffer Graphics command buffer
+ * @param swapchain Swapchain
+ * @param graphics_queue Graphics queue family
+ * @param present_queue 
+ */
 void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
   VkQueue graphics_queue, VkQueue present_queue) {
 
@@ -656,7 +698,7 @@ void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
 
   vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
 
-  Sleep(1000);  // TODO: this is fucked
+  //Sleep(1000);  // TODO: this is fucked
 
   uint32_t image_index = 0;  // TODO: Wrong!!
 
@@ -675,9 +717,10 @@ void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
  * 
  * @param hinstance Windows HINSTNACE
  * @param hwnd Windows HWND
+ * @param format Swapchain colour format
  * @return struct vk_state A structure containing Vulkan details
  */
-struct vk_state vk_init(struct sln_app app) {
+struct vk_state vk_init(struct sln_app app, VkFormat format) {
 
   struct vk_state state = {0};
 
@@ -714,7 +757,7 @@ struct vk_state vk_init(struct sln_app app) {
     &state.present_queue);
 
   if (vk_create_swapchain(state.device, surface, state.queue_family,
-    &state.swapchain) != VK_SUCCESS)
+    format, &state.swapchain) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   VkImage *images;
@@ -725,10 +768,10 @@ struct vk_state vk_init(struct sln_app app) {
 
   // TODO: Put in for loop?
   // TODO: Totally scuffed, idk how many images there really are!!
-  vk_get_image_view(state.device, images[0], &state.views[0]);
-  vk_get_image_view(state.device, images[1], &state.views[1]);
+  vk_get_image_view(state.device, images[0], format, &state.views[0]);
+  vk_get_image_view(state.device, images[1], format, &state.views[1]);
 
-  if (vk_create_render_pass(state.device, &state.render_pass) != VK_SUCCESS)
+  if (vk_create_render_pass(state.device, format, &state.render_pass) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   vk_create_framebuffer(state.device, state.render_pass, state.views[0],
