@@ -385,6 +385,13 @@ VkResult vk_create_pipeline(VkDevice device, VkPipelineLayout *pipeline) {
   return vkCreatePipelineLayout(device, &create_info, 0, pipeline);
 }
 
+/**
+ * @brief Create a Vulkan render pass
+ * 
+ * @param device Vulkan device
+ * @param render_pass Returns the created render pass
+ * @return VkResult Vulkan errors
+ */
 VkResult vk_create_render_pass(VkDevice device, VkRenderPass *render_pass) {
 
   VkAttachmentDescription attachments[1] = {0};
