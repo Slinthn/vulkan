@@ -53,9 +53,17 @@ void sln_init(struct sln_app app) {
   fragment_stage.pName = "main";
   vk_create_shader_module(vulkan.device, fragment_file.data,
     fragment_file.allocated_size, &fragment_stage.module);
-
-
+  
   VkPipeline pipeline;
   vk_create_graphics_pipeline(vulkan.device, vertex_stage, fragment_stage,
     vulkan.render_pass, &pipeline);
+
+  // TODO: [0] no bueno
+  vk_begin_frame(vulkan.command_buffer, vulkan.framebuffers[0], vulkan.render_pass,
+    pipeline);
+
+  vkCmdDraw(vulkan.command_buffer, 3, 1, 0, 0);
+
+  vk_end_frame(vulkan.command_buffer, vulkan.swapchain,
+    vulkan.graphics_queue, vulkan.present_queue);
 }

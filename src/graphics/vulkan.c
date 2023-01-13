@@ -143,8 +143,6 @@ void vk_select_device(VkInstance instance,
 struct vk_queue_family {
   uint32_t graphics;
   uint32_t present;
-  VkImageView views[2];
-  VkFramebuffer framebuffers[2];
 };
 
 /**
@@ -374,6 +372,11 @@ struct vk_state {
   VkRenderPass render_pass;
   VkImageView views[2];
   VkFramebuffer framebuffers[2];
+  struct vk_queue_family queue_family;
+  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
+  VkQueue graphics_queue, present_queue;
+  VkSwapchainKHR swapchain;
 };
 
 /**
@@ -565,6 +568,108 @@ VkResult vk_create_framebuffer(VkDevice device, VkRenderPass render_pass,
   return vkCreateFramebuffer(device, &create_info, 0, framebuffer);
 }
 
+VkResult vk_create_command_pool(VkDevice device,
+  struct vk_queue_family queue_family, VkCommandPool *command_pool) {
+
+  VkCommandPoolCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+  create_info.queueFamilyIndex = queue_family.graphics;
+
+  return vkCreateCommandPool(device, &create_info, 0, command_pool);
+}
+
+VkResult vk_create_command_buffer(VkDevice device,
+  VkCommandPool command_pool, VkCommandBuffer *command_buffer) {
+
+  VkCommandBufferAllocateInfo allocate_info = {0};
+  allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocate_info.commandPool = command_pool;
+  allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocate_info.commandBufferCount = 1;
+
+  return vkAllocateCommandBuffers(device, &allocate_info, command_buffer);
+}
+
+void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
+  VkRenderPass render_pass, VkPipeline pipeline) {
+
+  VkCommandBufferBeginInfo begin_info = {0};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  
+  vkBeginCommandBuffer(command_buffer, &begin_info);
+  
+  // TODO: Make parameter?
+  VkClearValue clear_value = {0};
+  clear_value.color.float32[0] = 1;
+  clear_value.color.float32[1] = 0;
+  clear_value.color.float32[2] = 1;
+  clear_value.color.float32[3] = 1;
+
+  VkRenderPassBeginInfo render_pass_info = {0};
+  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_info.renderPass = render_pass;
+  render_pass_info.framebuffer = framebuffer;
+  render_pass_info.renderArea.offset.x = 0;
+  render_pass_info.renderArea.offset.y = 0;
+  render_pass_info.renderArea.extent.width = 1424; // TODO: change
+  render_pass_info.renderArea.extent.height = 720;  // TOOD: change
+  render_pass_info.clearValueCount = 1;
+  render_pass_info.pClearValues = &clear_value;
+
+  vkCmdBeginRenderPass(command_buffer, &render_pass_info,
+    VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipeline);
+
+  // TODO: These have already been defined in vk_create_graphics_pipeline
+  VkViewport viewport = {0};
+  viewport.x = 0;
+  viewport.y = 0;
+  viewport.width = 1424;
+  viewport.height = 720;
+  viewport.minDepth = 0;
+  viewport.maxDepth = 1;
+  vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+  VkRect2D scissor = {0};
+  scissor.offset.x = 0;
+  scissor.offset.y = 0;
+  scissor.extent.width = 1424;
+  scissor.extent.height = 720;
+  vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+}
+
+void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
+  VkQueue graphics_queue, VkQueue present_queue) {
+
+  vkCmdEndRenderPass(command_buffer);
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo submit_info = {0};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.waitSemaphoreCount = 0;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &command_buffer;
+  submit_info.signalSemaphoreCount = 0;
+
+  vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+
+  Sleep(1000);  // TODO: this is fucked
+
+  uint32_t image_index = 0;  // TODO: Wrong!!
+
+  VkPresentInfoKHR present_info = {0};
+  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  present_info.waitSemaphoreCount = 0;
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = &swapchain;
+  present_info.pImageIndices = &image_index;
+
+  vkQueuePresentKHR(present_queue, &present_info);
+}
+
 /**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
@@ -594,26 +699,27 @@ struct vk_state vk_init(struct sln_app app) {
     DebugBreak();
 #endif
 
-  struct vk_queue_family queue_family = vk_get_queue_family(physical_device,
+  state.queue_family = vk_get_queue_family(physical_device,
     surface);
 
-  if (vk_create_device_and_queue(physical_device, queue_family,
+  if (vk_create_device_and_queue(physical_device, state.queue_family,
     &state.device) != VK_SUCCESS)
     DebugBreak();  // TODO: Better error handling
   
-  // TODO: Put in own function
-  VkQueue graphics_queue, present_queue;
-  vkGetDeviceQueue(state.device, queue_family.graphics, 0, &graphics_queue);
-  vkGetDeviceQueue(state.device, queue_family.present, 0, &present_queue);
+  // TODO: Put in own function?
+  vkGetDeviceQueue(state.device, state.queue_family.graphics, 0,
+    &state.graphics_queue);
 
-  VkSwapchainKHR swapchain;
-  if (vk_create_swapchain(state.device, surface, queue_family,
-    &swapchain) != VK_SUCCESS)
+  vkGetDeviceQueue(state.device, state.queue_family.present, 0,
+    &state.present_queue);
+
+  if (vk_create_swapchain(state.device, surface, state.queue_family,
+    &state.swapchain) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
   VkImage *images;
   uint32_t image_count;
-  if (vk_get_swapchain_images(state.device, swapchain, &images,
+  if (vk_get_swapchain_images(state.device, state.swapchain, &images,
     &image_count) != VK_SUCCESS)
     DebugBreak();  // TODO: Error handling
 
@@ -630,6 +736,14 @@ struct vk_state vk_init(struct sln_app app) {
 
   vk_create_framebuffer(state.device, state.render_pass, state.views[1],
     &state.framebuffers[1]);
+
+  if (vk_create_command_pool(state.device, state.queue_family,
+    &state.command_pool) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
+
+  if (vk_create_command_buffer(state.device, state.command_pool,
+    &state.command_buffer) != VK_SUCCESS)
+    DebugBreak();  // TODO: Error handling
 
   return state;
 }
