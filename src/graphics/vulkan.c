@@ -128,17 +128,32 @@ void vk_select_device(VkInstance instance,
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(instance, &device_count, 0);
 
-  VkPhysicalDevice *devices =
-    malloc(device_count * sizeof(VkPhysicalDevice));
-    // TODO: different memory allocation method?
+  VkPhysicalDevice *devices = malloc(device_count * sizeof(VkPhysicalDevice));
 
   vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
-  // TODO: Better checks
-  VkPhysicalDevice selected = devices[0];
+  for (uint32_t i = 0; i < device_count; i++) {
+    VkPhysicalDevice physical_device = devices[i];
 
-  *selected_device = selected;
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(physical_device, &properties);
 
+    if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+      continue;
+
+#if 0
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(physical_device, &features);
+#endif
+
+    *selected_device = physical_device;
+    goto complete;
+  }
+
+  // Fallback if nothing else works
+  *selected_device = devices[0];
+
+complete:
   free(devices);
 }
 
@@ -725,12 +740,10 @@ struct vk_state vk_init(struct sln_app app, VkFormat format) {
   struct vk_state state = {0};
 
   VkInstance instance;
-  if (vk_create_instance(VK_API_VERSION_1_0, &instance) != VK_SUCCESS)
-    DebugBreak();  // TODO: Better error handling
+  vk_create_instance(VK_API_VERSION_1_0, &instance);
 
   VkDebugUtilsMessengerEXT debug_messenger;
-  if (vk_create_debug_messenger(instance, &debug_messenger) != VK_SUCCESS)
-    DebugBreak();  // TODO: Better error handling
+  vk_create_debug_messenger(instance, &debug_messenger);
 
   VkPhysicalDevice physical_device;
   vk_select_device(instance, &physical_device);
@@ -738,17 +751,15 @@ struct vk_state vk_init(struct sln_app app, VkFormat format) {
   VkSurfaceKHR surface;
 
 #ifdef APP_WIN64
-  if (vk_win64(instance, app.hinstance, app.hwnd, &surface) != VK_SUCCESS)
-    DebugBreak();
+  vk_win64(instance, app.hinstance, app.hwnd, &surface);
 #endif
 
   state.queue_family = vk_get_queue_family(physical_device,
     surface);
 
-  if (vk_create_device_and_queue(physical_device, state.queue_family,
-    &state.device) != VK_SUCCESS)
-    DebugBreak();  // TODO: Better error handling
-  
+  vk_create_device_and_queue(physical_device, state.queue_family,
+    &state.device);
+
   // TODO: Put in own function?
   vkGetDeviceQueue(state.device, state.queue_family.graphics, 0,
     &state.graphics_queue);
@@ -756,37 +767,27 @@ struct vk_state vk_init(struct sln_app app, VkFormat format) {
   vkGetDeviceQueue(state.device, state.queue_family.present, 0,
     &state.present_queue);
 
-  if (vk_create_swapchain(state.device, surface, state.queue_family,
-    format, &state.swapchain) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
+  vk_create_swapchain(state.device, surface, state.queue_family,
+    format, &state.swapchain);
+
+  vk_create_render_pass(state.device, format, &state.render_pass);
+
+  vk_create_command_pool(state.device, state.queue_family, &state.command_pool);
+
+  vk_create_command_buffer(state.device, state.command_pool,
+    &state.command_buffer);
 
   VkImage *images;
   uint32_t image_count;
-  if (vk_get_swapchain_images(state.device, state.swapchain, &images,
-    &image_count) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
+  vk_get_swapchain_images(state.device, state.swapchain, &images,
+    &image_count);
 
-  // TODO: Put in for loop?
-  // TODO: Totally scuffed, idk how many images there really are!!
-  vk_get_image_view(state.device, images[0], format, &state.views[0]);
-  vk_get_image_view(state.device, images[1], format, &state.views[1]);
+  for (uint32_t i = 0; i < image_count; i++) {
+    vk_get_image_view(state.device, images[i], format, &state.views[i]);
 
-  if (vk_create_render_pass(state.device, format, &state.render_pass) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
-
-  vk_create_framebuffer(state.device, state.render_pass, state.views[0],
-    &state.framebuffers[0]);
-
-  vk_create_framebuffer(state.device, state.render_pass, state.views[1],
-    &state.framebuffers[1]);
-
-  if (vk_create_command_pool(state.device, state.queue_family,
-    &state.command_pool) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
-
-  if (vk_create_command_buffer(state.device, state.command_pool,
-    &state.command_buffer) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
+    vk_create_framebuffer(state.device, state.render_pass, state.views[i],
+      &state.framebuffers[i]);
+  }
 
   return state;
 }
