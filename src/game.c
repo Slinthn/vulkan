@@ -54,7 +54,15 @@ static struct vk_state vulkan;
 
 void sln_init(struct sln_app app) {
 
-  vulkan = vk_init(app, VK_FORMAT_R8G8B8A8_SRGB);
+  VkSurfaceFormatKHR format = {0};
+  format.format = VK_FORMAT_R8G8B8A8_SRGB;
+  format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
+  VkExtent2D extent = {0};
+  extent.width = 1920;
+  extent.height = 1080;
+
+  vulkan = vk_init(app, extent, format);
 
   // TODO: Double check if alignment is necessary. I'm sure it is
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
@@ -79,8 +87,8 @@ void sln_init(struct sln_app app) {
   vk_create_shader_module(vulkan.device, fragment_file.data,
     fragment_file.allocated_size, &fragment_stage.module);
   
-  vk_create_graphics_pipeline(vulkan.device, vertex_stage, fragment_stage,
-    vulkan.render_pass, &vulkan.pipeline);
+  vk_create_graphics_pipeline(vulkan.device, vulkan.extent, vertex_stage,
+    fragment_stage, vulkan.render_pass, &vulkan.pipeline);
 
   sln_close_file(vertex_file);
   sln_close_file(fragment_file);
@@ -90,7 +98,7 @@ void sln_init(struct sln_app app) {
 void sln_update(void) {
 
   // TODO: [0] no bueno
-  vk_begin_frame(vulkan.command_buffer, vulkan.framebuffers[0],
+  vk_begin_frame(vulkan.command_buffer, vulkan.extent, vulkan.framebuffers[0],
     vulkan.render_pass, vulkan.pipeline);
 
   vkCmdDraw(vulkan.command_buffer, 3, 1, 0, 0);

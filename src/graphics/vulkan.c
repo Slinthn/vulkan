@@ -233,7 +233,7 @@ VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
   create_info.pQueueCreateInfos = queue_info;
   create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
   create_info.ppEnabledExtensionNames = extensions;
-  create_info.pEnabledFeatures = 0;  // TODO: change?
+  create_info.pEnabledFeatures = 0;
 
   return vkCreateDevice(physical_device, &create_info, 0, device);
 }
@@ -269,36 +269,55 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
  * @param device Vulkan device
  * @param surface Vulkan surface
  * @param queue_family Queue families to use
- * @param format Swapchain colour format
+ * @param extent Pass preferred width and height. Returns actual dimensions
+ * @param selected_format Pass preferred format. Returns actual format selected
  * @param swapchain Returns the created swapchain
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
-  struct vk_queue_family queue_family, VkFormat format,
-  VkSwapchainKHR *swapchain) {
+VkResult vk_create_swapchain(VkDevice device, VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface, struct vk_queue_family queue_family, VkExtent2D *extent,
+  VkSurfaceFormatKHR *selected_format, VkSwapchainKHR *swapchain) {
 
-  // TODO: I am lazy to enumerate available formats
-  VkSurfaceFormatKHR surface_format = {
-    .format = format,
-    .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-  };
+  uint32_t surface_format_count; 
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
+    &surface_format_count, 0);
 
-  // TODO: Mess around with other values. pg 2364
-  VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
+  VkSurfaceFormatKHR *surface_formats =
+    malloc(surface_format_count * sizeof(VkSurfaceFormatKHR));
 
-  // TODO: Again, error checking
-  VkExtent2D extent = {
-    .width = 1424,
-    .height = 720
-  };
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
+    &surface_format_count, surface_formats);
+
+  for (uint32_t i = 0; i < surface_format_count; i++) {
+    VkSurfaceFormatKHR surface_format = surface_formats[i];
+    if (surface_format.format == selected_format->format
+      && surface_format.colorSpace == selected_format->colorSpace)
+      goto complete;
+  }
+
+  *selected_format = surface_formats[0];
+
+complete:
+  free(surface_formats);
+
+  VkSurfaceCapabilitiesKHR surface_caps;
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface,
+    &surface_caps);
+
+  extent->width = min(surface_caps.maxImageExtent.width, max(extent->width,
+    surface_caps.minImageExtent.width));
+
+  extent->height = min(surface_caps.maxImageExtent.height, max(extent->height,
+    surface_caps.minImageExtent.height));
+
 
   VkSwapchainCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = surface;
-  create_info.minImageCount = 2;  // TODO: Check swapchain support for this?
-  create_info.imageFormat = surface_format.format;
-  create_info.imageColorSpace = surface_format.colorSpace;
-  create_info.imageExtent = extent;
+  create_info.minImageCount = surface_caps.minImageCount + 1;
+  create_info.imageFormat = selected_format->format;
+  create_info.imageColorSpace = selected_format->colorSpace;
+  create_info.imageExtent = *extent;
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -315,7 +334,7 @@ VkResult vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
   // TODO: preTransform probably wrong
   create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
   create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  create_info.presentMode = present_mode;
+  create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
   create_info.clipped = 1;
 
   return vkCreateSwapchainKHR(device, &create_info, 0, swapchain);
@@ -400,6 +419,7 @@ struct vk_state {
   VkQueue graphics_queue, present_queue;
   VkSwapchainKHR swapchain;
   VkPipeline pipeline;
+  VkExtent2D extent;
 };
 
 /**
@@ -461,20 +481,20 @@ VkResult vk_create_render_pass(VkDevice device, VkFormat format,
  * @brief Creates a Vulkan graphics pipeline
  * 
  * @param device Vulkan device
+ * @param extent Dimensions of framebuffer
  * @param vertex_stage Vertex shader
  * @param fragment_stage Fragment shader
  * @param pipeline Returns the created graphics pipeline
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_graphics_pipeline(VkDevice device,
+VkResult vk_create_graphics_pipeline(VkDevice device, VkExtent2D extent,
   VkPipelineShaderStageCreateInfo vertex_stage,
   VkPipelineShaderStageCreateInfo fragment_stage,
   VkRenderPass render_pass, VkPipeline *pipeline) {
 
   // TODO: This function is too big. Split into smaller chunks
   VkPipelineLayout pipeline_layout;
-  if (vk_create_pipeline_layout(device, &pipeline_layout) != VK_SUCCESS)
-    DebugBreak();  // TODO: Error handling
+  vk_create_pipeline_layout(device, &pipeline_layout);
 
   VkPipelineShaderStageCreateInfo stages[] =
     {vertex_stage, fragment_stage};
@@ -494,16 +514,16 @@ VkResult vk_create_graphics_pipeline(VkDevice device,
   VkViewport viewport = {0};
   viewport.x = 0;
   viewport.y = 0;
-  viewport.width = 1424;
-  viewport.height = 720;
+  viewport.width = (float)extent.width;
+  viewport.height = (float)extent.height;
   viewport.minDepth = 0;
   viewport.maxDepth = 1;
 
   VkRect2D scissor = {0};
   scissor.offset.x = 0;
   scissor.offset.y = 0;
-  scissor.extent.width = 1424;
-  scissor.extent.height = 720;
+  scissor.extent.width = extent.width;
+  scissor.extent.height = extent.height;
 
   VkPipelineViewportStateCreateInfo viewport_state = {0};
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -573,21 +593,23 @@ VkResult vk_create_graphics_pipeline(VkDevice device,
  * @brief Create a Vulkan framebuffer
  * 
  * @param device Vulkan device
+ * @param extent Dimensions of framebuffer
  * @param render_pass Render pass
  * @param image_view Image view to use
  * @param framebuffer Returns the framebuffer
  * @return VkResult 
  */
-VkResult vk_create_framebuffer(VkDevice device, VkRenderPass render_pass,
-  VkImageView image_view, VkFramebuffer *framebuffer) {
+VkResult vk_create_framebuffer(VkDevice device, VkExtent2D extent,
+  VkRenderPass render_pass, VkImageView image_view,
+  VkFramebuffer *framebuffer) {
 
   VkFramebufferCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   create_info.renderPass = render_pass;
   create_info.attachmentCount = 1;
   create_info.pAttachments = &image_view;
-  create_info.width = 1424;  // TODO: Hardcoded!
-  create_info.height = 720;  // TODO: Hardcoded!
+  create_info.width = extent.width;
+  create_info.height = extent.height;
   create_info.layers = 1;
 
   return vkCreateFramebuffer(device, &create_info, 0, framebuffer);
@@ -636,12 +658,13 @@ VkResult vk_create_command_buffer(VkDevice device,
  * @brief Call before rendering. Setup rendering frame
  * 
  * @param command_buffer Graphics command buffer
+ * @param extent Dimensions of framebuffer
  * @param framebuffer Current framebuffer
  * @param render_pass Render pass to use
  * @param pipeline Pipeline to use
  */
-void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
-  VkRenderPass render_pass, VkPipeline pipeline) {
+void vk_begin_frame(VkCommandBuffer command_buffer, VkExtent2D extent,
+  VkFramebuffer framebuffer, VkRenderPass render_pass, VkPipeline pipeline) {
 
   VkCommandBufferBeginInfo begin_info = {0};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -661,8 +684,7 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
   render_pass_info.framebuffer = framebuffer;
   render_pass_info.renderArea.offset.x = 0;
   render_pass_info.renderArea.offset.y = 0;
-  render_pass_info.renderArea.extent.width = 1424; // TODO: change
-  render_pass_info.renderArea.extent.height = 720;  // TOOD: change
+  render_pass_info.renderArea.extent = extent;
   render_pass_info.clearValueCount = 1;
   render_pass_info.pClearValues = &clear_value;
 
@@ -676,8 +698,8 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
   VkViewport viewport = {0};
   viewport.x = 0;
   viewport.y = 0;
-  viewport.width = 1424;
-  viewport.height = 720;
+  viewport.width = (float)extent.width;
+  viewport.height = (float)extent.height;
   viewport.minDepth = 0;
   viewport.maxDepth = 1;
   vkCmdSetViewport(command_buffer, 0, 1, &viewport);
@@ -685,8 +707,8 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkFramebuffer framebuffer,
   VkRect2D scissor = {0};
   scissor.offset.x = 0;
   scissor.offset.y = 0;
-  scissor.extent.width = 1424;
-  scissor.extent.height = 720;
+  scissor.extent.width = extent.width;
+  scissor.extent.height = extent.height;
   vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 }
 
@@ -732,10 +754,12 @@ void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
  * 
  * @param hinstance Windows HINSTNACE
  * @param hwnd Windows HWND
+ * @param extent Preferred dimensions of framebuffer
  * @param format Swapchain colour format
  * @return struct vk_state A structure containing Vulkan details
  */
-struct vk_state vk_init(struct sln_app app, VkFormat format) {
+struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
+  VkSurfaceFormatKHR format) {
 
   struct vk_state state = {0};
 
@@ -767,10 +791,12 @@ struct vk_state vk_init(struct sln_app app, VkFormat format) {
   vkGetDeviceQueue(state.device, state.queue_family.present, 0,
     &state.present_queue);
 
-  vk_create_swapchain(state.device, surface, state.queue_family,
-    format, &state.swapchain);
+  state.extent = extent;
 
-  vk_create_render_pass(state.device, format, &state.render_pass);
+  vk_create_swapchain(state.device, physical_device, surface,
+  state.queue_family, &state.extent, &format, &state.swapchain);
+
+  vk_create_render_pass(state.device, format.format, &state.render_pass);
 
   vk_create_command_pool(state.device, state.queue_family, &state.command_pool);
 
@@ -783,10 +809,10 @@ struct vk_state vk_init(struct sln_app app, VkFormat format) {
     &image_count);
 
   for (uint32_t i = 0; i < image_count; i++) {
-    vk_get_image_view(state.device, images[i], format, &state.views[i]);
+    vk_get_image_view(state.device, images[i], format.format, &state.views[i]);
 
-    vk_create_framebuffer(state.device, state.render_pass, state.views[i],
-      &state.framebuffers[i]);
+    vk_create_framebuffer(state.device, state.extent, state.render_pass,
+      state.views[i], &state.framebuffers[i]);
   }
 
   return state;

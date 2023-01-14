@@ -76,7 +76,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
   app.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hinstance, 0);
+    1920, 1080, 0, 0, hinstance, 0);
 
   uint64_t counter;
   uint64_t frequency;
