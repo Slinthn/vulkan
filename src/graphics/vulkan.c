@@ -3,26 +3,7 @@
  * 
  */
 
-struct vk_queue_family {
-  uint32_t graphics;
-  uint32_t present;
-};
-
-struct vk_state {
-  VkDevice device;
-  VkRenderPass render_pass;
-  VkImageView views[2];
-  VkFramebuffer framebuffers[2];
-  struct vk_queue_family queue_family;
-  VkCommandPool command_pool;
-  VkCommandBuffer command_buffer;
-  VkQueue graphics_queue, present_queue;
-  VkSwapchainKHR swapchain;
-  VkPipeline pipeline;
-  VkExtent2D extent;
-  VkSemaphore image_ready_semaphore, render_ready_semaphore;
-  VkFence render_ready_fence;
-};
+#ifdef SLN_VULKAN
 
 #pragma warning(disable:4100)
 /**
@@ -89,7 +70,6 @@ VkResult vk_create_instance(uint32_t app_version, VkInstance *instance) {
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app_info.apiVersion = app_version;
 
-  // TODO only debug for validation layers
   char *layers[] = {
 #ifdef SLN_DEBUG
     "VK_LAYER_KHRONOS_validation"
@@ -97,17 +77,26 @@ VkResult vk_create_instance(uint32_t app_version, VkInstance *instance) {
   };
 
   char *extensions[] = {
+#ifdef SLN_DEBUG
     "VK_EXT_debug_utils",
+#endif
+
     "VK_KHR_surface",
     "VK_KHR_win32_surface"
   };
 
+#ifdef SLN_DEBUG
   VkDebugUtilsMessengerCreateInfoEXT messenger_create_info =
     vk_populate_debug_struct();
+#endif
 
   VkInstanceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+
+#ifdef SLN_DEBUG
   create_info.pNext = &messenger_create_info;
+#endif
+
   create_info.pApplicationInfo = &app_info;
   create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
   create_info.ppEnabledLayerNames = layers;
@@ -145,8 +134,10 @@ VkResult vk_create_debug_messenger(VkInstance instance,
  * @param selected_device Returns the selected physical device
  * @return VkResult Vulkan errors
  */
-void vk_select_device(VkInstance instance,
+void vk_select_suitable_physical_device(VkInstance instance,
   VkPhysicalDevice *selected_device) {
+
+  // TODO: VkPhysicalDeviceLimits?
 
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(instance, &device_count, 0);
@@ -182,34 +173,32 @@ complete:
  * @param surface Vulkan surface for present support
  * @return Enumerated device family queue indices
  */
-struct vk_queue_family vk_get_queue_family(
-  VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
+void vk_select_appropriate_queue_families(
+  VkPhysicalDevice physical_device, VkSurfaceKHR surface,
+  uint32_t *graphics_family, uint32_t *present_family) {
 
-  uint32_t count;
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, 0);
+  uint32_t family_count;
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, 0);
 
   VkQueueFamilyProperties *properties =
-    malloc(count * sizeof(VkQueueFamilyProperties));
+    malloc(family_count * sizeof(VkQueueFamilyProperties));
   
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, properties);
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count,
+    properties);
 
-  struct vk_queue_family family = {0};
-
-  for (uint32_t i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < family_count; i++) {
     if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-      family.graphics = i;
+      *graphics_family = i;
 
     VkBool32 present_support = 0;
     vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i,
       surface, &present_support);
 
     if (present_support)
-      family.present = i;
+      *present_family = i;
   }
 
   free(properties);
-
-  return family;
 }
 
 /**
@@ -221,20 +210,19 @@ struct vk_queue_family vk_get_queue_family(
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
-  struct vk_queue_family queue_families, VkDevice *device) {
+  uint32_t *queue_families, uint32_t queue_family_count, VkDevice *device) {
 
   float queue_priority = 1;
 
-  VkDeviceQueueCreateInfo queue_info[2] = {0};
-  queue_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queue_info[0].queueFamilyIndex = queue_families.graphics;
-  queue_info[0].queueCount = 1;
-  queue_info[0].pQueuePriorities = &queue_priority;
+  VkDeviceQueueCreateInfo *queue_info =
+    calloc(1, queue_family_count * sizeof(VkDeviceQueueCreateInfo));
 
-  queue_info[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queue_info[1].queueFamilyIndex = queue_families.present;
-  queue_info[1].queueCount = 1;
-  queue_info[1].pQueuePriorities = &queue_priority;
+  for (uint32_t i = 0; i < queue_family_count; i++) {
+    queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_info[i].queueFamilyIndex = queue_families[i];
+    queue_info[i].queueCount = 1;
+    queue_info[i].pQueuePriorities = &queue_priority;
+  }
 
   char *extensions[] = {
     "VK_KHR_swapchain"
@@ -242,13 +230,17 @@ VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
 
   VkDeviceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  create_info.queueCreateInfoCount = SIZEOF_ARRAY(queue_info);
+  create_info.queueCreateInfoCount = queue_family_count;
   create_info.pQueueCreateInfos = queue_info;
   create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
   create_info.ppEnabledExtensionNames = extensions;
   create_info.pEnabledFeatures = 0;
 
-  return vkCreateDevice(physical_device, &create_info, 0, device);
+  VkResult result = vkCreateDevice(physical_device, &create_info, 0, device);
+
+  free(queue_info);
+
+  return result;
 }
 
 /**
@@ -288,7 +280,7 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_swapchain(VkDevice device, VkPhysicalDevice physical_device,
-  VkSurfaceKHR surface, struct vk_queue_family queue_family, VkExtent2D *extent,
+  VkSurfaceKHR surface, uint32_t queue_families[2], VkExtent2D *extent,
   VkSurfaceFormatKHR *selected_format, VkSwapchainKHR *swapchain) {
 
   uint32_t surface_format_count; 
@@ -334,14 +326,13 @@ complete:
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  if (queue_family.graphics == queue_family.present) {
+  // If both the graphics queue family and present queue family are the same
+  if (queue_families[0] == queue_families[1]) {
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   } else {
-    uint32_t families[2] = {queue_family.graphics, queue_family.present};
-
     create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     create_info.queueFamilyIndexCount = 2;
-    create_info.pQueueFamilyIndices = families;
+    create_info.pQueueFamilyIndices = queue_families;
   }
 
   create_info.preTransform = surface_caps.currentTransform;
@@ -449,7 +440,7 @@ VkResult vk_create_render_pass(VkDevice device, VkFormat format,
   VkAttachmentDescription attachments[1] = {0};
   attachments[0].format = format;
   attachments[0].samples = 1;
-  attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -639,103 +630,6 @@ VkResult vk_create_command_buffer(VkDevice device,
 }
 
 /**
- * @brief Call before rendering. Setup rendering frame
- * 
- * @param command_buffer Graphics command buffer
- * @param extent Dimensions of framebuffer
- * @param framebuffer Current framebuffer
- * @param render_pass Render pass to use
- * @param pipeline Pipeline to use
- */
-void vk_begin_frame(VkCommandBuffer command_buffer, VkExtent2D extent,
-  VkFramebuffer framebuffer, VkRenderPass render_pass, VkPipeline pipeline) {
-
-  VkCommandBufferBeginInfo begin_info = {0};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  
-  vkResetCommandBuffer(command_buffer, 0);
-
-  vkBeginCommandBuffer(command_buffer, &begin_info);
-  
-  // TODO: Make parameter?
-  VkClearValue clear_value = {0};
-  clear_value.color.float32[0] = 1;
-  clear_value.color.float32[1] = 0;
-  clear_value.color.float32[2] = 1;
-  clear_value.color.float32[3] = 1;
-
-  VkRenderPassBeginInfo render_pass_info = {0};
-  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_info.renderPass = render_pass;
-  render_pass_info.framebuffer = framebuffer;
-  render_pass_info.renderArea.offset.x = 0;
-  render_pass_info.renderArea.offset.y = 0;
-  render_pass_info.renderArea.extent = extent;
-  render_pass_info.clearValueCount = 1;
-  render_pass_info.pClearValues = &clear_value;
-
-  vkCmdBeginRenderPass(command_buffer, &render_pass_info,
-    VK_SUBPASS_CONTENTS_INLINE);
-
-  vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-    pipeline);
-
-  VkViewport viewport = {0};
-  viewport.x = 0;
-  viewport.y = 0;
-  viewport.width = (float)extent.width;
-  viewport.height = (float)extent.height;
-  viewport.minDepth = 0;
-  viewport.maxDepth = 1;
-  vkCmdSetViewport(command_buffer, 0, 1, &viewport);
-
-  VkRect2D scissor = {0};
-  scissor.offset.x = 0;
-  scissor.offset.y = 0;
-  scissor.extent.width = extent.width;
-  scissor.extent.height = extent.height;
-  vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-}
-
-/**
- * @brief Call after rendering is complete. Finishes and presents frame
- * 
- * @param command_buffer Graphics command buffer
- * @param swapchain Swapchain
- * @param graphics_queue Graphics queue family
- * @param present_queue 
- */
-void vk_end_frame(VkCommandBuffer command_buffer,
-  VkSwapchainKHR swapchain, VkSemaphore image_ready_semaphore,
-  VkSemaphore render_ready_semaphore, VkFence render_ready_fence,
-  VkQueue graphics_queue, VkQueue present_queue, uint32_t image_index) {
-
-  vkCmdEndRenderPass(command_buffer);
-  vkEndCommandBuffer(command_buffer);
-
-  VkSubmitInfo submit_info = {0};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = &image_ready_semaphore;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &command_buffer;
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &render_ready_semaphore;
-
-  vkQueueSubmit(graphics_queue, 1, &submit_info, render_ready_fence);
-
-  VkPresentInfoKHR present_info = {0};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &render_ready_semaphore;
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains = &swapchain;
-  present_info.pImageIndices = &image_index;
-
-  vkQueuePresentKHR(present_queue, &present_info);
-}
-
-/**
  * @brief Creates a Vulkan semaphore
  * 
  * @param device Vulkan device
@@ -766,78 +660,4 @@ VkResult vk_create_fence(VkDevice device, VkFence *fence) {
   return vkCreateFence(device, &create_info, 0, fence);
 }
 
-/**
- * @brief Initialises Vulkan. Should be called after program starts
- * 
- * @param hinstance Windows HINSTNACE
- * @param hwnd Windows HWND
- * @param extent Preferred dimensions of framebuffer
- * @param format Swapchain colour format
- * @return struct vk_state A structure containing Vulkan details
- */
-struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
-  VkSurfaceFormatKHR format) {
-
-  struct vk_state state = {0};
-
-  VkInstance instance;
-  vk_create_instance(VK_API_VERSION_1_0, &instance);
-
-  VkDebugUtilsMessengerEXT debug_messenger;
-  vk_create_debug_messenger(instance, &debug_messenger);
-
-  VkPhysicalDevice physical_device;
-  vk_select_device(instance, &physical_device);
-
-  VkSurfaceKHR surface;
-
-#ifdef SLN_WIN64
-  vk_win64(instance, app.hinstance, app.hwnd, &surface);
-#endif
-
-  state.queue_family = vk_get_queue_family(physical_device,
-    surface);
-
-  vk_create_device_and_queue(physical_device, state.queue_family,
-    &state.device);
-
-  vkGetDeviceQueue(state.device, state.queue_family.graphics, 0,
-    &state.graphics_queue);
-
-  vkGetDeviceQueue(state.device, state.queue_family.present, 0,
-    &state.present_queue);
-
-  state.extent = extent;
-
-  vk_create_swapchain(state.device, physical_device, surface,
-  state.queue_family, &state.extent, &format, &state.swapchain);
-
-  vk_create_render_pass(state.device, format.format, &state.render_pass);
-
-  vk_create_command_pool(state.device, state.queue_family.graphics,
-    &state.command_pool);
-
-  vk_create_command_buffer(state.device, state.command_pool,
-    &state.command_buffer);
-
-  VkImage *images;
-  uint32_t image_count;
-  vk_get_swapchain_images(state.device, state.swapchain, &images,
-    &image_count);
-
-  for (uint32_t i = 0; i < image_count; i++) {
-    vk_get_image_view(state.device, images[i], format.format, &state.views[i]);
-
-    vk_create_framebuffer(state.device, state.extent, state.render_pass,
-      state.views[i], &state.framebuffers[i]);
-  }
-
-  free(images);
-
-  vk_create_semaphore(state.device, &state.image_ready_semaphore);
-  vk_create_semaphore(state.device, &state.render_ready_semaphore);
-
-  vk_create_fence(state.device, &state.render_ready_fence);
-
-  return state;
-}
+#endif  // SLN_VULKAN

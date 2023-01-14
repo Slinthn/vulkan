@@ -12,6 +12,6 @@ pushd ..\bin
 glslc.exe ..\src\graphics\glsl\shader.vert -o shader-v.spv
 glslc.exe ..\src\graphics\glsl\shader.frag -o shader-f.spv
 
-cl /nologo /I C:\VulkanSDK\1.3.236.0\Include /Z7 /Wall /wd5045 /DSLN_DEBUG /DSLN_WIN64 ..\src\win64.c /link KERNEL32.LIB USER32.LIB ..\build\VULKAN-1.LIB
+cl /nologo /I C:\VulkanSDK\1.3.236.0\Include /Z7 /Wall /wd5045 /DSLN_DEBUG /DSLN_VULKAN /DSLN_WIN64 ..\src\win64.c /link KERNEL32.LIB USER32.LIB ..\build\VULKAN-1.LIB
 
 popd

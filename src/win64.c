@@ -21,6 +21,8 @@
 struct sln_app {
   HINSTANCE hinstance;
   HWND hwnd;
+  uint32_t width;
+  uint32_t height;
 };
 
 #include "game.c"
@@ -37,10 +39,27 @@ struct sln_app {
 LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
   LPARAM lparam) {
 
+  struct sln_app *state =
+    (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
+
   switch (msg) {
+  case WM_CREATE: {
+    // Set the windows state variable pointer as userdata in the window
+    CREATESTRUCT *createstruct = (CREATESTRUCT *)lparam;
+    SetWindowLongPtrA(window, GWLP_USERDATA,
+      (LONG_PTR)createstruct->lpCreateParams);
+
+    return 1;
+  }
+
   case WM_CLOSE:
   case WM_DESTROY: {
     ExitProcess(0);
+  } break;
+
+  case WM_SIZE: {
+    state->width = LOWORD(lparam);
+    state->height = HIWORD(lparam);
   } break;
   }
 
@@ -74,7 +93,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
   app.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    1920, 1080, 0, 0, hinstance, 0);
+    1920, 1080, 0, 0, hinstance, &app);
 
   sln_init(app);
 
@@ -92,13 +111,12 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
       DispatchMessageA(&msg);
     }
 
-    sln_update();
+    sln_update(app);
 
-    fps++;
-  
     uint64_t new_counter;
     QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
 
+    fps++;
     if ((new_counter - counter) / frequency >= 1) {
       char buffer[64];
 
