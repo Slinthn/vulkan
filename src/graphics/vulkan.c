@@ -91,7 +91,9 @@ VkResult vk_create_instance(uint32_t app_version, VkInstance *instance) {
 
   // TODO only debug for validation layers
   char *layers[] = {
+#ifdef SLN_DEBUG
     "VK_LAYER_KHRONOS_validation"
+#endif
   };
 
   char *extensions[] = {
@@ -161,11 +163,6 @@ void vk_select_device(VkInstance instance,
 
     if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
       continue;
-
-#if 0
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(physical_device, &features);
-#endif
 
     *selected_device = physical_device;
     goto complete;
@@ -347,8 +344,7 @@ complete:
     create_info.pQueueFamilyIndices = families;
   }
 
-  // TODO: preTransform probably wrong
-  create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+  create_info.preTransform = surface_caps.currentTransform;
   create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
   create_info.clipped = 1;
@@ -372,8 +368,7 @@ VkResult vk_get_swapchain_images(VkDevice device, VkSwapchainKHR swapchain,
 
   *images = malloc(*count * sizeof(VkImage));
 
-  return vkGetSwapchainImagesKHR(device, swapchain,
-    count, *images);
+  return vkGetSwapchainImagesKHR(device, swapchain, count, *images);
 }
 
 /**
@@ -431,7 +426,8 @@ VkResult vk_create_shader_module(VkDevice device, void *code, uint64_t size,
  * @param pipeline Returns the created pipeline layout
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_pipeline_layout(VkDevice device, VkPipelineLayout *pipeline) {
+VkResult vk_create_pipeline_layout(VkDevice device,
+  VkPipelineLayout *pipeline) {
 
   VkPipelineLayoutCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -489,7 +485,7 @@ VkResult vk_create_render_pass(VkDevice device, VkFormat format,
  * @param pipeline Returns the created graphics pipeline
  * @return VkResult Vulkan errors
  */
-VkResult vk_create_graphics_pipeline(VkDevice device, VkExtent2D extent,
+VkResult vk_create_graphics_pipeline(VkDevice device,
   VkPipelineShaderStageCreateInfo vertex_stage,
   VkPipelineShaderStageCreateInfo fragment_stage,
   VkRenderPass render_pass, VkPipeline *pipeline) {
@@ -506,33 +502,19 @@ VkResult vk_create_graphics_pipeline(VkDevice device, VkExtent2D extent,
     VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   
   vertex_state.vertexBindingDescriptionCount = 0;
-  vertex_state.vertexAttributeDescriptionCount = 0;  // TODO: Temporary
+  vertex_state.vertexAttributeDescriptionCount = 0;
 
   VkPipelineInputAssemblyStateCreateInfo input_assemble = {0};
-  input_assemble.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  input_assemble.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+
   input_assemble.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   input_assemble.primitiveRestartEnable = 0;
-
-  VkViewport viewport = {0};
-  viewport.x = 0;
-  viewport.y = 0;
-  viewport.width = (float)extent.width;
-  viewport.height = (float)extent.height;
-  viewport.minDepth = 0;
-  viewport.maxDepth = 1;
-
-  VkRect2D scissor = {0};
-  scissor.offset.x = 0;
-  scissor.offset.y = 0;
-  scissor.extent.width = extent.width;
-  scissor.extent.height = extent.height;
 
   VkPipelineViewportStateCreateInfo viewport_state = {0};
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewport_state.viewportCount = 1;
-  viewport_state.pViewports = &viewport;
   viewport_state.scissorCount = 1;
-  viewport_state.pScissors = &scissor;
 
   VkPipelineRasterizationStateCreateInfo rasterisation = {0};
   rasterisation.sType =
@@ -540,10 +522,10 @@ VkResult vk_create_graphics_pipeline(VkDevice device, VkExtent2D extent,
 
   rasterisation.depthClampEnable = 0;
   rasterisation.rasterizerDiscardEnable = 0;
-  rasterisation.polygonMode = VK_POLYGON_MODE_FILL;  // TODO: Cool parameter
+  rasterisation.polygonMode = VK_POLYGON_MODE_FILL;
   rasterisation.lineWidth = 1;
   rasterisation.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterisation.frontFace = VK_FRONT_FACE_CLOCKWISE;  // TODO: Issue in future?
+  rasterisation.frontFace = VK_FRONT_FACE_CLOCKWISE;
   rasterisation.depthBiasEnable = 0;
 
   VkPipelineMultisampleStateCreateInfo multisample = {0};
@@ -626,12 +608,12 @@ VkResult vk_create_framebuffer(VkDevice device, VkExtent2D extent,
  * @return VkResult Vulkan errors
  */
 VkResult vk_create_command_pool(VkDevice device,
-  struct vk_queue_family queue_family, VkCommandPool *command_pool) {
+  uint32_t queue_family, VkCommandPool *command_pool) {
 
   VkCommandPoolCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  create_info.queueFamilyIndex = queue_family.graphics;
+  create_info.queueFamilyIndex = queue_family;
 
   return vkCreateCommandPool(device, &create_info, 0, command_pool);
 }
@@ -698,7 +680,6 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkExtent2D extent,
   vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
     pipeline);
 
-  // TODO: These have already been defined in vk_create_graphics_pipeline
   VkViewport viewport = {0};
   viewport.x = 0;
   viewport.y = 0;
@@ -810,7 +791,7 @@ struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
 
   VkSurfaceKHR surface;
 
-#ifdef APP_WIN64
+#ifdef SLN_WIN64
   vk_win64(instance, app.hinstance, app.hwnd, &surface);
 #endif
 
@@ -820,7 +801,6 @@ struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
   vk_create_device_and_queue(physical_device, state.queue_family,
     &state.device);
 
-  // TODO: Put in own function?
   vkGetDeviceQueue(state.device, state.queue_family.graphics, 0,
     &state.graphics_queue);
 
@@ -834,7 +814,8 @@ struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
 
   vk_create_render_pass(state.device, format.format, &state.render_pass);
 
-  vk_create_command_pool(state.device, state.queue_family, &state.command_pool);
+  vk_create_command_pool(state.device, state.queue_family.graphics,
+    &state.command_pool);
 
   vk_create_command_buffer(state.device, state.command_pool,
     &state.command_buffer);

@@ -3,8 +3,6 @@
  * 
  */
 
-#define APP_WIN64
-
 #pragma warning(push, 0)
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -78,12 +76,14 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
     1920, 1080, 0, 0, hinstance, 0);
 
+  sln_init(app);
+
   uint64_t counter;
   uint64_t frequency;
   QueryPerformanceCounter((LARGE_INTEGER *)&counter);
   QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
 
-  sln_init(app);
+  uint32_t fps = 0;
 
   while (1) {
     MSG msg;
@@ -94,16 +94,19 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
     sln_update();
 
-#if 0
-    int32_t tosleep;
-    do {
-      uint64_t newcounter;
-      QueryPerformanceCounter((LARGE_INTEGER *)&newcounter);
-      float delta_seconds = ((newcounter - counter) / (float)frequency);
-      tosleep = (int32_t)floorf((1 / 60.0f - delta_seconds) * 1000.0f);
-    } while (tosleep > 0);
-#endif
+    fps++;
+  
+    uint64_t new_counter;
+    QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
 
-    QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+    if ((new_counter - counter) / frequency >= 1) {
+      char buffer[64];
+
+      sprintf_s(buffer, sizeof(buffer), "FPS: %u\n", fps);
+      OutputDebugString(buffer);
+
+      fps = 0;
+      QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+    }
   }
 }

@@ -64,7 +64,6 @@ void sln_init(struct sln_app app) {
 
   vulkan = vk_init(app, extent, format);
 
-  // TODO: Double check if alignment is necessary. I'm sure it is
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
@@ -87,8 +86,8 @@ void sln_init(struct sln_app app) {
   vk_create_shader_module(vulkan.device, fragment_file.data,
     fragment_file.allocated_size, &fragment_stage.module);
   
-  vk_create_graphics_pipeline(vulkan.device, vulkan.extent, vertex_stage,
-    fragment_stage, vulkan.render_pass, &vulkan.pipeline);
+  vk_create_graphics_pipeline(vulkan.device, vertex_stage, fragment_stage,
+    vulkan.render_pass, &vulkan.pipeline);
 
   sln_close_file(vertex_file);
   sln_close_file(fragment_file);
