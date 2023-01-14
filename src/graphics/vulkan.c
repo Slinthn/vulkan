@@ -3,6 +3,27 @@
  * 
  */
 
+struct vk_queue_family {
+  uint32_t graphics;
+  uint32_t present;
+};
+
+struct vk_state {
+  VkDevice device;
+  VkRenderPass render_pass;
+  VkImageView views[2];
+  VkFramebuffer framebuffers[2];
+  struct vk_queue_family queue_family;
+  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
+  VkQueue graphics_queue, present_queue;
+  VkSwapchainKHR swapchain;
+  VkPipeline pipeline;
+  VkExtent2D extent;
+  VkSemaphore image_ready_semaphore, render_ready_semaphore;
+  VkFence render_ready_fence;
+};
+
 #pragma warning(disable:4100)
 /**
  * @brief Vulkan debug message handler
@@ -156,11 +177,6 @@ void vk_select_device(VkInstance instance,
 complete:
   free(devices);
 }
-
-struct vk_queue_family {
-  uint32_t graphics;
-  uint32_t present;
-};
 
 /**
  * @brief Get indicies for acceptable family queues for device
@@ -341,7 +357,7 @@ complete:
 }
 
 /**
- * @brief Returns images of the swapchain
+ * @brief Returns images of the swapchain. free(images) when done
  * 
  * @param device Vulkan device
  * @param swapchain Vulkan swapchain
@@ -407,20 +423,6 @@ VkResult vk_create_shader_module(VkDevice device, void *code, uint64_t size,
 
   return vkCreateShaderModule(device, &create_info, 0, module);
 }
-
-struct vk_state {
-  VkDevice device;
-  VkRenderPass render_pass;
-  VkImageView views[2];
-  VkFramebuffer framebuffers[2];
-  struct vk_queue_family queue_family;
-  VkCommandPool command_pool;
-  VkCommandBuffer command_buffer;
-  VkQueue graphics_queue, present_queue;
-  VkSwapchainKHR swapchain;
-  VkPipeline pipeline;
-  VkExtent2D extent;
-};
 
 /**
  * @brief Create a Vulkan pipeline layout
@@ -669,6 +671,8 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkExtent2D extent,
   VkCommandBufferBeginInfo begin_info = {0};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   
+  vkResetCommandBuffer(command_buffer, 0);
+
   vkBeginCommandBuffer(command_buffer, &begin_info);
   
   // TODO: Make parameter?
@@ -720,33 +724,65 @@ void vk_begin_frame(VkCommandBuffer command_buffer, VkExtent2D extent,
  * @param graphics_queue Graphics queue family
  * @param present_queue 
  */
-void vk_end_frame(VkCommandBuffer command_buffer, VkSwapchainKHR swapchain,
-  VkQueue graphics_queue, VkQueue present_queue) {
+void vk_end_frame(VkCommandBuffer command_buffer,
+  VkSwapchainKHR swapchain, VkSemaphore image_ready_semaphore,
+  VkSemaphore render_ready_semaphore, VkFence render_ready_fence,
+  VkQueue graphics_queue, VkQueue present_queue, uint32_t image_index) {
 
   vkCmdEndRenderPass(command_buffer);
   vkEndCommandBuffer(command_buffer);
 
   VkSubmitInfo submit_info = {0};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.waitSemaphoreCount = 0;
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = &image_ready_semaphore;
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &command_buffer;
-  submit_info.signalSemaphoreCount = 0;
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = &render_ready_semaphore;
 
-  vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
-
-  //Sleep(1000);  // TODO: this is fucked
-
-  uint32_t image_index = 0;  // TODO: Wrong!!
+  vkQueueSubmit(graphics_queue, 1, &submit_info, render_ready_fence);
 
   VkPresentInfoKHR present_info = {0};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 0;
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = &render_ready_semaphore;
   present_info.swapchainCount = 1;
   present_info.pSwapchains = &swapchain;
   present_info.pImageIndices = &image_index;
 
   vkQueuePresentKHR(present_queue, &present_info);
+}
+
+/**
+ * @brief Creates a Vulkan semaphore
+ * 
+ * @param device Vulkan device
+ * @param semaphore Returns the created semaphore
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_semaphore(VkDevice device, VkSemaphore *semaphore) {
+
+  VkSemaphoreCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+  return vkCreateSemaphore(device, &create_info, 0, semaphore);
+}
+
+/**
+ * @brief Creates a Vulkan fence
+ * 
+ * @param device Vulkan device
+ * @param fence Returns the created fence
+ * @return VkResult Vulkan errors
+ */
+VkResult vk_create_fence(VkDevice device, VkFence *fence) {
+
+  VkFenceCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  return vkCreateFence(device, &create_info, 0, fence);
 }
 
 /**
@@ -814,6 +850,13 @@ struct vk_state vk_init(struct sln_app app, VkExtent2D extent,
     vk_create_framebuffer(state.device, state.extent, state.render_pass,
       state.views[i], &state.framebuffers[i]);
   }
+
+  free(images);
+
+  vk_create_semaphore(state.device, &state.image_ready_semaphore);
+  vk_create_semaphore(state.device, &state.render_ready_semaphore);
+
+  vk_create_fence(state.device, &state.render_ready_fence);
 
   return state;
 }

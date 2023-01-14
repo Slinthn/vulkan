@@ -97,12 +97,20 @@ void sln_init(struct sln_app app) {
 
 void sln_update(void) {
 
-  // TODO: [0] no bueno
-  vk_begin_frame(vulkan.command_buffer, vulkan.extent, vulkan.framebuffers[0],
-    vulkan.render_pass, vulkan.pipeline);
+  vkWaitForFences(vulkan.device, 1, &vulkan.render_ready_fence, 1, UINT64_MAX);
+  vkResetFences(vulkan.device, 1, &vulkan.render_ready_fence);
+
+  uint32_t image_index;
+  vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX,
+    vulkan.image_ready_semaphore, VK_NULL_HANDLE, &image_index);
+
+  vk_begin_frame(vulkan.command_buffer, vulkan.extent,
+    vulkan.framebuffers[image_index], vulkan.render_pass, vulkan.pipeline);
 
   vkCmdDraw(vulkan.command_buffer, 3, 1, 0, 0);
 
   vk_end_frame(vulkan.command_buffer, vulkan.swapchain,
-    vulkan.graphics_queue, vulkan.present_queue);
+    vulkan.image_ready_semaphore, vulkan.render_ready_semaphore,
+    vulkan.render_ready_fence, vulkan.graphics_queue, vulkan.present_queue,
+    image_index);
 }
