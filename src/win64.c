@@ -36,7 +36,7 @@ struct sln_app {
  * @param lparam Second parameter
  * @return LRESULT Return code
  */
-LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
+LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam,
   LPARAM lparam) {
 
   struct sln_app *state =
@@ -65,6 +65,37 @@ LRESULT window_message_proc(HWND window, UINT msg, WPARAM wparam,
 
   return DefWindowProcA(window, msg, wparam, lparam);
 }
+
+DWORD win_game_loop(void *param) {
+
+  struct sln_app *app = (struct sln_app *)param;
+
+  uint64_t counter;
+  uint64_t frequency;
+  QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+  QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
+
+  uint32_t fps = 0;
+
+  while (1) {
+    sln_update(*app);
+
+    uint64_t new_counter;
+    QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
+
+    fps++;
+    if ((new_counter - counter) / frequency >= 1) {
+      char buffer[64];
+
+      sprintf_s(buffer, sizeof(buffer), "FPS: %u\n", fps);
+      OutputDebugString(buffer);
+
+      fps = 0;
+      QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+    }
+  }
+}
+
 #pragma warning(disable:4100)
 /**
  * @brief Entrypoint for WIN64 builds
@@ -86,7 +117,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   WNDCLASSEXA wc = {0};
   wc.cbSize = sizeof(wc);
   wc.hInstance = app.hinstance;
-  wc.lpfnWndProc = window_message_proc;
+  wc.lpfnWndProc = win_message_proc;
   wc.lpszClassName = "12/01/2023Slinapp";
 
   RegisterClassExA(&wc);
@@ -97,12 +128,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
 
   sln_init(app);
 
-  uint64_t counter;
-  uint64_t frequency;
-  QueryPerformanceCounter((LARGE_INTEGER *)&counter);
-  QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
-
-  uint32_t fps = 0;
+  CreateThread(0, 0, win_game_loop, &app, 0, 0);
 
   while (1) {
     MSG msg;
@@ -111,20 +137,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
       DispatchMessageA(&msg);
     }
 
-    sln_update(app);
-
-    uint64_t new_counter;
-    QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
-
-    fps++;
-    if ((new_counter - counter) / frequency >= 1) {
-      char buffer[64];
-
-      sprintf_s(buffer, sizeof(buffer), "FPS: %u\n", fps);
-      OutputDebugString(buffer);
-
-      fps = 0;
-      QueryPerformanceCounter((LARGE_INTEGER *)&counter);
-    }
+    // Not to overload window messages
+    Sleep(10);
   }
 }
