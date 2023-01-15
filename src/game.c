@@ -8,14 +8,14 @@
 
 #include "macros.c"
 
-#define VK_FRAMEBUFFER_COUNT 2
+#define SLN_FRAMEBUFFER_COUNT 2
 
 struct vk_vertex {
   float position[2];
   float color[3];
 };
 
-#include "graphics/vulkan.c"
+#include "graphics/vulkan_init.c"
 #include "file.c"
 
 struct sln_resources {
@@ -59,11 +59,7 @@ void sln_init(struct vk_surface surface) {
   struct vk_initialise_info init_info = {0};
   init_info.extent.width = SLN_WINDOW_WIDTH;
   init_info.extent.height = SLN_WINDOW_HEIGHT;
-  init_info.format.format = VK_FORMAT_R8G8B8A8_SRGB;
-  init_info.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-  init_info.vulkan_version = VK_API_VERSION_1_0;
   init_info.surface = surface;
-  init_info.framebuffer_count = VK_FRAMEBUFFER_COUNT;
 
   vulkan = vk_init(init_info);
 
