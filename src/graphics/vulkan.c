@@ -5,6 +5,8 @@
 
 #ifdef SLN_VULKAN
 
+#include "vulkan_win64.c"
+
 #pragma warning(disable:4100)
 /**
  * @brief Vulkan debug message handler
@@ -244,31 +246,6 @@ VkResult vk_create_device_and_queue(VkPhysicalDevice physical_device,
 }
 
 /**
- * @brief Link Vulkan to a HWND
- * 
- * @param instance Vulkan instance
- * @param hinstance Windows HINSTANCE
- * @param hwnd Windows HWND
- * @param surface Returns a Vulkan surface
- * @return VkResult Vulkan errors
- */
-VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
-  HWND hwnd, VkSurfaceKHR *surface) {
-
-  VkWin32SurfaceCreateInfoKHR create_info = {0};
-  create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-  create_info.hinstance = hinstance;
-  create_info.hwnd = hwnd;
-
-  // Extension function not loaded automatically
-  PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
-    (PFN_vkCreateWin32SurfaceKHR)(void *)vkGetInstanceProcAddr(instance,
-    "vkCreateWin32SurfaceKHR");
-
-  return vkCreateWin32SurfaceKHR(instance, &create_info, 0, surface);
-}
-
-/**
  * @brief Create a swapchain
  * 
  * @param device Vulkan device
@@ -281,7 +258,8 @@ VkResult vk_win64(VkInstance instance, HINSTANCE hinstance,
  */
 VkResult vk_create_swapchain(VkDevice device, VkPhysicalDevice physical_device,
   VkSurfaceKHR surface, uint32_t queue_families[2], VkExtent2D *extent,
-  VkSurfaceFormatKHR *selected_format, VkSwapchainKHR *swapchain) {
+  VkSurfaceFormatKHR *selected_format, uint32_t framebuffer_count,
+  VkSwapchainKHR *swapchain) {
 
   uint32_t surface_format_count; 
   vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
@@ -319,7 +297,7 @@ complete:
   VkSwapchainCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = surface;
-  create_info.minImageCount = surface_caps.minImageCount + 1;
+  create_info.minImageCount = framebuffer_count;  // TODO: is this ok?
   create_info.imageFormat = selected_format->format;
   create_info.imageColorSpace = selected_format->colorSpace;
   create_info.imageExtent = *extent;
@@ -437,31 +415,31 @@ VkResult vk_create_pipeline_layout(VkDevice device,
 VkResult vk_create_render_pass(VkDevice device, VkFormat format,
   VkRenderPass *render_pass) {
 
-  VkAttachmentDescription attachments[1] = {0};
-  attachments[0].format = format;
-  attachments[0].samples = 1;
-  attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  VkAttachmentDescription attachment = {0};
+  attachment.format = format;
+  attachment.samples = 1;
+  attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-  VkAttachmentReference attachment_references[1] = {0};
-  attachment_references[0].attachment = 0;
-  attachment_references[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  VkAttachmentReference attachment_reference = {0};
+  attachment_reference.attachment = 0;
+  attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkSubpassDescription subpasses[1] = {0};
-  subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpasses[0].colorAttachmentCount = SIZEOF_ARRAY(attachment_references);
-  subpasses[0].pColorAttachments = attachment_references;
+  VkSubpassDescription subpass = {0};
+  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount = 1;
+  subpass.pColorAttachments = &attachment_reference;
 
   VkRenderPassCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  create_info.attachmentCount = SIZEOF_ARRAY(attachments);
-  create_info.pAttachments = attachments;
-  create_info.subpassCount = SIZEOF_ARRAY(subpasses);
-  create_info.pSubpasses = subpasses;
+  create_info.attachmentCount = 1;
+  create_info.pAttachments = &attachment;
+  create_info.subpassCount = 1;
+  create_info.pSubpasses = &subpass;
 
   return vkCreateRenderPass(device, &create_info, 0, render_pass);
 }
@@ -658,6 +636,226 @@ VkResult vk_create_fence(VkDevice device, VkFence *fence) {
   create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
   return vkCreateFence(device, &create_info, 0, fence);
+}
+
+void vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
+  VkSurfaceKHR *surface) {
+
+#ifdef SLN_WIN64
+  vk_win64(instance, appsurface.hinstance, appsurface.hwnd, surface);
+#else
+  #error "No Vulkan surface has been selected."
+#endif
+}
+
+/**
+ * @brief Initialises Vulkan. Should be called after program starts
+ * 
+ * @param hinstance Windows HINSTNACE
+ * @param hwnd Windows HWND
+ * @param extent Preferred dimensions of framebuffer
+ * @param format Swapchain colour format
+ * @return struct sln_vulkan_state A structure containing Vulkan details
+ */
+struct sln_vulkan_state vk_init(struct vk_initialise_info init_info) {
+
+  struct sln_vulkan_state state = {0};
+  state.extent = init_info.extent;
+
+  vk_create_instance(init_info.vulkan_version, &state.instance);
+
+#ifdef SLN_DEBUG
+  vk_create_debug_messenger(state.instance, &state.debug_messenger);
+#endif
+
+  vk_select_suitable_physical_device(state.instance, &state.physical_device);
+
+  vk_initialise_surface(state.instance, init_info.surface, &state.surface);
+
+  vk_select_appropriate_queue_families(state.physical_device,
+    state.surface, &state.queue_family.type.graphics,
+    &state.queue_family.type.present);
+
+  vk_create_device_and_queue(state.physical_device,
+    state.queue_family.families,
+    SIZEOF_ARRAY(state.queue_family.families), &state.device);
+
+  vkGetDeviceQueue(state.device, state.queue_family.type.graphics, 0,
+    &state.graphics_queue);
+
+  vkGetDeviceQueue(state.device, state.queue_family.type.present, 0,
+    &state.present_queue);
+
+  vk_create_swapchain(state.device, state.physical_device, state.surface,
+  state.queue_family.families, &state.extent, &init_info.format,
+  init_info.framebuffer_count, &state.swapchain);
+
+  vk_create_render_pass(state.device, init_info.format.format,
+    &state.render_pass);
+
+  vk_create_command_pool(state.device, state.queue_family.type.graphics,
+    &state.command_pool);
+
+  vk_create_command_buffer(state.device, state.command_pool,
+    &state.command_buffer);
+
+  VkImage *images;
+  uint32_t image_count;
+  vk_get_swapchain_images(state.device, state.swapchain, &images,
+    &image_count);
+
+  for (uint32_t i = 0; i < image_count
+    && i < init_info.framebuffer_count; i++) {
+    vk_get_image_view(state.device, images[i], init_info.format.format,
+      &state.framebuffers[i].view);
+
+    vk_create_framebuffer(state.device, state.extent,
+      state.render_pass,
+      state.framebuffers[i].view,
+      &state.framebuffers[i].framebuffer);
+  }
+
+  free(images);
+
+  vk_create_semaphore(state.device, &state.image_ready_semaphore);
+  vk_create_semaphore(state.device, &state.render_ready_semaphore);
+
+  vk_create_fence(state.device, &state.render_ready_fence);
+
+  return state;
+}
+
+struct vk_shader vk_create_shader(VkDevice device, VkRenderPass render_pass,
+  void *vertex_bytecode, uint64_t vertex_size, void *fragment_bytecode,
+  uint64_t fragment_size) {
+
+  struct vk_shader shader = {0};
+
+  VkPipelineShaderStageCreateInfo vertex_stage = {0};
+  vertex_stage.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+
+  vertex_stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vertex_stage.pName = "main";
+
+  vk_create_shader_module(device, vertex_bytecode,
+    vertex_size, &vertex_stage.module);
+
+  VkPipelineShaderStageCreateInfo fragment_stage = {0};
+  fragment_stage.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+
+  fragment_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  fragment_stage.pName = "main";
+
+  vk_create_shader_module(device, fragment_bytecode,
+    fragment_size, &fragment_stage.module);
+  
+  vk_create_graphics_pipeline(device, vertex_stage, fragment_stage,
+    render_pass, &shader.pipeline);
+
+  return shader;
+}
+
+void vk_render_begin(struct sln_vulkan_state state, float clear_color[4],
+  uint32_t *new_image_index) {
+
+  vkWaitForFences(state.device, 1, &state.render_ready_fence, 1, UINT64_MAX);
+  vkResetFences(state.device, 1, &state.render_ready_fence);
+
+  vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX,
+    state.image_ready_semaphore, VK_NULL_HANDLE, new_image_index);
+
+  VkCommandBufferBeginInfo begin_info = {0};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  
+  vkResetCommandBuffer(state.command_buffer, 0);
+
+  vkBeginCommandBuffer(state.command_buffer, &begin_info);
+
+  VkClearValue clear_value = {0};
+  clear_value.color.float32[0] = clear_color[0];
+  clear_value.color.float32[1] = clear_color[1];
+  clear_value.color.float32[2] = clear_color[2];
+  clear_value.color.float32[3] = clear_color[3];
+
+  VkRenderPassBeginInfo render_pass_info = {0};
+  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_info.renderPass = state.render_pass;
+  render_pass_info.framebuffer =
+    state.framebuffers[*new_image_index].framebuffer;
+
+  render_pass_info.renderArea.offset.x = 0;
+  render_pass_info.renderArea.offset.y = 0;
+  render_pass_info.renderArea.extent = state.extent;
+  render_pass_info.clearValueCount = 1;
+  render_pass_info.pClearValues = &clear_value;
+
+  vkCmdBeginRenderPass(state.command_buffer, &render_pass_info,
+    VK_SUBPASS_CONTENTS_INLINE);
+}
+
+/**
+ * @brief Call after rendering is complete. Finishes and presents frame
+ * 
+ * @param command_buffer Graphics command buffer
+ * @param swapchain Swapchain
+ * @param graphics_queue Graphics queue family
+ * @param present_queue 
+ */
+void vk_render_end(struct sln_vulkan_state state) {
+
+  vkCmdEndRenderPass(state.command_buffer);
+  vkEndCommandBuffer(state.command_buffer);
+
+  VkSubmitInfo submit_info = {0};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = &state.image_ready_semaphore;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &state.command_buffer;
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = &state.render_ready_semaphore;
+
+  vkQueueSubmit(state.graphics_queue, 1,
+    &submit_info, state.render_ready_fence);
+
+  VkPresentInfoKHR present_info = {0};
+  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = &state.render_ready_semaphore;
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = &state.swapchain;
+  present_info.pImageIndices = &state.current_image_index;
+
+  vkQueuePresentKHR(state.present_queue, &present_info);
+}
+
+void vk_render_bind_shader(struct sln_vulkan_state state,
+  struct vk_shader shader) {
+
+  vkCmdBindPipeline(state.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+    shader.pipeline);
+}
+
+void vk_render_set_viewport(struct sln_vulkan_state state,
+  uint32_t width, uint32_t height) {
+
+  VkViewport viewport = {0};
+  viewport.x = 0;
+  viewport.y = 0;
+  viewport.width = (float)width;
+  viewport.height = (float)height;
+  viewport.minDepth = 0;
+  viewport.maxDepth = 1;
+  vkCmdSetViewport(state.command_buffer, 0, 1, &viewport);
+
+  VkRect2D scissor = {0};
+  scissor.offset.x = 0;
+  scissor.offset.y = 0;
+  scissor.extent.width = width;
+  scissor.extent.height = height;
+  vkCmdSetScissor(state.command_buffer, 0, 1, &scissor);
 }
 
 #endif  // SLN_VULKAN

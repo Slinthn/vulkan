@@ -18,9 +18,12 @@
 
 #pragma warning(pop)
 
-struct sln_app {
+struct vk_surface {
   HINSTANCE hinstance;
   HWND hwnd;
+};
+
+struct sln_app {
   uint32_t width;
   uint32_t height;
 };
@@ -110,29 +113,32 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   int show) {
 #pragma warning(default:4100)
 
+
+  struct vk_surface surface = {0};
+  surface.hinstance = hinstance;
+
   struct sln_app app = {0};
-  app.hinstance = hinstance;
 
   // Register window class
   WNDCLASSEXA wc = {0};
   wc.cbSize = sizeof(wc);
-  wc.hInstance = app.hinstance;
+  wc.hInstance = hinstance;
   wc.lpfnWndProc = win_message_proc;
   wc.lpszClassName = "12/01/2023Slinapp";
 
   RegisterClassExA(&wc);
 
-  app.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
+  surface.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
     WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    1920, 1080, 0, 0, hinstance, &app);
+    SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
 
-  sln_init(app);
+  sln_init(surface);
 
   CreateThread(0, 0, win_game_loop, &app, 0, 0);
 
   while (1) {
     MSG msg;
-    while (PeekMessageA(&msg, app.hwnd, 0, 0, PM_REMOVE)) {
+    while (PeekMessageA(&msg, surface.hwnd, 0, 0, PM_REMOVE)) {
       TranslateMessage(&msg);
       DispatchMessageA(&msg);
     }
