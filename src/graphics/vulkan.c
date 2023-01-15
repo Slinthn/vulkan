@@ -5,6 +5,7 @@
 
 #ifdef SLN_VULKAN
 
+#include "vulkan.h"
 #include "vulkan_win64.c"
 
 #pragma warning(disable:4100)
@@ -655,11 +656,11 @@ void vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
  * @param hwnd Windows HWND
  * @param extent Preferred dimensions of framebuffer
  * @param format Swapchain colour format
- * @return struct sln_vulkan_state A structure containing Vulkan details
+ * @return struct vk_state A structure containing Vulkan details
  */
-struct sln_vulkan_state vk_init(struct vk_initialise_info init_info) {
+struct vk_state vk_init(struct vk_initialise_info init_info) {
 
-  struct sln_vulkan_state state = {0};
+  struct vk_state state = {0};
   state.extent = init_info.extent;
 
   vk_create_instance(init_info.vulkan_version, &state.instance);
@@ -725,9 +726,7 @@ struct sln_vulkan_state vk_init(struct vk_initialise_info init_info) {
   return state;
 }
 
-struct vk_shader vk_create_shader(VkDevice device, VkRenderPass render_pass,
-  void *vertex_bytecode, uint64_t vertex_size, void *fragment_bytecode,
-  uint64_t fragment_size) {
+struct vk_shader vk_create_shader(struct vk_shader_info shader_info) {
 
   struct vk_shader shader = {0};
 
@@ -738,8 +737,8 @@ struct vk_shader vk_create_shader(VkDevice device, VkRenderPass render_pass,
   vertex_stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
   vertex_stage.pName = "main";
 
-  vk_create_shader_module(device, vertex_bytecode,
-    vertex_size, &vertex_stage.module);
+  vk_create_shader_module(shader_info.device, shader_info.vertex_data,
+    shader_info.vertex_data_size, &vertex_stage.module);
 
   VkPipelineShaderStageCreateInfo fragment_stage = {0};
   fragment_stage.sType =
@@ -748,30 +747,29 @@ struct vk_shader vk_create_shader(VkDevice device, VkRenderPass render_pass,
   fragment_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
   fragment_stage.pName = "main";
 
-  vk_create_shader_module(device, fragment_bytecode,
-    fragment_size, &fragment_stage.module);
+  vk_create_shader_module(shader_info.device, shader_info.fragment_data,
+    shader_info.fragment_data_size, &fragment_stage.module);
   
-  vk_create_graphics_pipeline(device, vertex_stage, fragment_stage,
-    render_pass, &shader.pipeline);
+  vk_create_graphics_pipeline(shader_info.device, vertex_stage, fragment_stage,
+    shader_info.render_pass, &shader.pipeline);
 
   return shader;
 }
 
-void vk_render_begin(struct sln_vulkan_state state, float clear_color[4],
-  uint32_t *new_image_index) {
+void vk_render_begin(struct vk_state *state, float clear_color[4]) {
 
-  vkWaitForFences(state.device, 1, &state.render_ready_fence, 1, UINT64_MAX);
-  vkResetFences(state.device, 1, &state.render_ready_fence);
+  vkWaitForFences(state->device, 1, &state->render_ready_fence, 1, UINT64_MAX);
+  vkResetFences(state->device, 1, &state->render_ready_fence);
 
-  vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX,
-    state.image_ready_semaphore, VK_NULL_HANDLE, new_image_index);
+  vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX,
+    state->image_ready_semaphore, VK_NULL_HANDLE, &state->current_image_index);
 
   VkCommandBufferBeginInfo begin_info = {0};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   
-  vkResetCommandBuffer(state.command_buffer, 0);
+  vkResetCommandBuffer(state->command_buffer, 0);
 
-  vkBeginCommandBuffer(state.command_buffer, &begin_info);
+  vkBeginCommandBuffer(state->command_buffer, &begin_info);
 
   VkClearValue clear_value = {0};
   clear_value.color.float32[0] = clear_color[0];
@@ -781,17 +779,17 @@ void vk_render_begin(struct sln_vulkan_state state, float clear_color[4],
 
   VkRenderPassBeginInfo render_pass_info = {0};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_info.renderPass = state.render_pass;
+  render_pass_info.renderPass = state->render_pass;
   render_pass_info.framebuffer =
-    state.framebuffers[*new_image_index].framebuffer;
+    state->framebuffers[state->current_image_index].framebuffer;
 
   render_pass_info.renderArea.offset.x = 0;
   render_pass_info.renderArea.offset.y = 0;
-  render_pass_info.renderArea.extent = state.extent;
+  render_pass_info.renderArea.extent = state->extent;
   render_pass_info.clearValueCount = 1;
   render_pass_info.pClearValues = &clear_value;
 
-  vkCmdBeginRenderPass(state.command_buffer, &render_pass_info,
+  vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
     VK_SUBPASS_CONTENTS_INLINE);
 }
 
@@ -803,7 +801,7 @@ void vk_render_begin(struct sln_vulkan_state state, float clear_color[4],
  * @param graphics_queue Graphics queue family
  * @param present_queue 
  */
-void vk_render_end(struct sln_vulkan_state state) {
+void vk_render_end(struct vk_state state) {
 
   vkCmdEndRenderPass(state.command_buffer);
   vkEndCommandBuffer(state.command_buffer);
@@ -831,14 +829,14 @@ void vk_render_end(struct sln_vulkan_state state) {
   vkQueuePresentKHR(state.present_queue, &present_info);
 }
 
-void vk_render_bind_shader(struct sln_vulkan_state state,
+void vk_render_bind_shader(struct vk_state state,
   struct vk_shader shader) {
 
   vkCmdBindPipeline(state.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
     shader.pipeline);
 }
 
-void vk_render_set_viewport(struct sln_vulkan_state state,
+void vk_render_set_viewport(struct vk_state state,
   uint32_t width, uint32_t height) {
 
   VkViewport viewport = {0};

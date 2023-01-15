@@ -113,7 +113,6 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   int show) {
 #pragma warning(default:4100)
 
-
   struct vk_surface surface = {0};
   surface.hinstance = hinstance;
 

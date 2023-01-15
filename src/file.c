@@ -1,3 +1,9 @@
+struct sln_file {
+  void *data;
+  uint64_t size;
+  uint64_t allocated_size;
+};
+
 /**
  * @brief Read the contents of a file to a buffer
  * 

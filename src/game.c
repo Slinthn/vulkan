@@ -8,73 +8,17 @@
 
 #include "macros.c"
 
-struct sln_file {
-  void *data;
-  uint64_t size;
-  uint64_t allocated_size;
-};
+#define VK_FRAMEBUFFER_COUNT 2
 
-union vk_queue_family {
-  struct {
-    uint32_t graphics;
-    uint32_t present;
-  } type;
-  uint32_t families[2];
-};
-
-struct vk_shader {
-  VkPipeline pipeline;
-};
-
-#define SLN_FRAMEBUFFER_COUNT 2
-
-struct sln_vulkan_framebuffer {
-  VkImageView view;
-  VkFramebuffer framebuffer;
-};
+#include "graphics/vulkan.c"
+#include "file.c"
 
 struct sln_resources {
   struct vk_shader shader;
 };
 
-struct sln_vulkan_state {
-  VkInstance instance;
-  VkPhysicalDevice physical_device;
-  VkDevice device;
-  
-  union vk_queue_family queue_family;
-  VkSemaphore image_ready_semaphore, render_ready_semaphore;
-  VkFence render_ready_fence;
-  VkExtent2D extent;
-  VkCommandPool command_pool;
-  VkCommandBuffer command_buffer;
-  VkQueue graphics_queue, present_queue;
-  VkSwapchainKHR swapchain;
-  VkRenderPass render_pass;
-  VkSurfaceKHR surface;
-  struct sln_vulkan_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT];
-  uint32_t current_image_index;
-  uint32_t unused0;
-
-#ifdef SLN_DEBUG
-  VkDebugUtilsMessengerEXT debug_messenger;
-#endif
-
-  struct sln_resources resource;
-};
-
-struct vk_initialise_info {
-  VkExtent2D extent;
-  VkSurfaceFormatKHR format;
-  struct vk_surface surface;
-  uint32_t vulkan_version;
-  uint32_t framebuffer_count;
-};
-
-#include "graphics/vulkan.c"
-#include "file.c"
-
-static struct sln_vulkan_state vulkan;
+static struct vk_state vulkan;
+static struct sln_resources resources;
 
 void sln_init(struct vk_surface surface) {
 
@@ -85,16 +29,22 @@ void sln_init(struct vk_surface surface) {
   init_info.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
   init_info.vulkan_version = VK_API_VERSION_1_0;
   init_info.surface = surface;
-  init_info.framebuffer_count = 2;
+  init_info.framebuffer_count = VK_FRAMEBUFFER_COUNT;
 
   vulkan = vk_init(init_info);
 
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
-  vulkan.resource.shader = vk_create_shader(vulkan.device, vulkan.render_pass,
-    vertex_file.data, vertex_file.allocated_size, fragment_file.data,
-    fragment_file.allocated_size);
+  struct vk_shader_info shader_info = {0};
+  shader_info.device = vulkan.device;
+  shader_info.render_pass = vulkan.render_pass;
+  shader_info.vertex_data = vertex_file.data;
+  shader_info.vertex_data_size = vertex_file.allocated_size;
+  shader_info.fragment_data = fragment_file.data;
+  shader_info.fragment_data_size = fragment_file.allocated_size;
+
+  resources.shader = vk_create_shader(shader_info);
     
   sln_close_file(vertex_file);
   sln_close_file(fragment_file);
@@ -102,9 +52,9 @@ void sln_init(struct vk_surface surface) {
 
 void sln_update(struct sln_app app) {
 
-  vk_render_begin(vulkan, (float[4]){1, 1, 1, 1}, &vulkan.current_image_index);
+  vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1});
 
-  vk_render_bind_shader(vulkan, vulkan.resource.shader);
+  vk_render_bind_shader(vulkan, resources.shader);
 
   vk_render_set_viewport(vulkan, app.width, app.height);
 
