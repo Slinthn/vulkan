@@ -150,7 +150,8 @@ void vk_create_shader_module(VkDevice device, void *code, uint64_t size,
   vkCreateShaderModule(device, &create_info, 0, module);
 }
 
-struct vk_shader vk_create_shader(struct vk_shader_info shader_info) {
+struct vk_shader vk_create_shader(struct vk_state *state, void *vertex_data,
+  uint64_t vertex_size, void *fragment_data, uint64_t fragment_size) {
 
   struct vk_shader shader = {0};
 
@@ -161,8 +162,8 @@ struct vk_shader vk_create_shader(struct vk_shader_info shader_info) {
   vertex_stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
   vertex_stage.pName = "main";
 
-  vk_create_shader_module(shader_info.device, shader_info.vertex_data,
-    shader_info.vertex_data_size, &vertex_stage.module);
+  vk_create_shader_module(state->device, vertex_data,
+    vertex_size, &vertex_stage.module);
 
   VkPipelineShaderStageCreateInfo fragment_stage = {0};
   fragment_stage.sType =
@@ -171,11 +172,11 @@ struct vk_shader vk_create_shader(struct vk_shader_info shader_info) {
   fragment_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
   fragment_stage.pName = "main";
 
-  vk_create_shader_module(shader_info.device, shader_info.fragment_data,
-    shader_info.fragment_data_size, &fragment_stage.module);
+  vk_create_shader_module(state->device, fragment_data,
+    fragment_size, &fragment_stage.module);
   
-  vk_create_graphics_pipeline(shader_info.device, vertex_stage, fragment_stage,
-    shader_info.render_pass, &shader.pipeline);
+  vk_create_graphics_pipeline(state->device, vertex_stage, fragment_stage,
+    state->render_pass, &shader.pipeline);
 
   return shader;
 }

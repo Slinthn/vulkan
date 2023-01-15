@@ -39,29 +39,6 @@ struct vk_state {
 #endif
 };
 
-struct vk_initialise_info {
-  VkExtent2D extent;
-  struct vk_surface surface;
-};
-
-struct vk_shader_info {
-  VkDevice device;
-  VkRenderPass render_pass;
-  uint32_t *vertex_data;
-  uint64_t vertex_data_size;
-  uint32_t *fragment_data;
-  uint64_t fragment_data_size;
-};
-
-struct vk_buffer_info {
-  VkDevice device;
-  VkPhysicalDevice physical_device;
-  uint64_t size;
-  VkBufferUsageFlagBits usage;
-  union vk_queue_family queue_family;
-  VkMemoryPropertyFlags flags;
-};
-
 struct vk_buffer {
   VkBuffer buffer;
   VkDeviceMemory memory;

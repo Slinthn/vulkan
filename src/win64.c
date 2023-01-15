@@ -113,12 +113,10 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
   int show) {
 #pragma warning(default:4100)
 
+  struct sln_app app = {0};
   struct vk_surface surface = {0};
   surface.hinstance = hinstance;
 
-  struct sln_app app = {0};
-
-  // Register window class
   WNDCLASSEXA wc = {0};
   wc.cbSize = sizeof(wc);
   wc.hInstance = hinstance;
