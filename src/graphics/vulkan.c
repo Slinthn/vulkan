@@ -467,12 +467,29 @@ VkResult vk_create_graphics_pipeline(VkDevice device,
   VkPipelineShaderStageCreateInfo stages[] =
     {vertex_stage, fragment_stage};
 
+  VkVertexInputBindingDescription bind_desc = {0};
+  bind_desc.binding = 0;
+  bind_desc.stride = sizeof(struct vk_vertex);
+  bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription attributes[2] = {0};
+  attributes[0].location = 0;
+  attributes[0].binding = 0;
+  attributes[0].format = VK_FORMAT_R32G32_SFLOAT;
+  attributes[0].offset = 0;
+  attributes[1].location = 1;
+  attributes[1].binding = 0;
+  attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+  attributes[1].offset = sizeof(float) * 2;
+
   VkPipelineVertexInputStateCreateInfo vertex_state = {0};
   vertex_state.sType =
     VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   
-  vertex_state.vertexBindingDescriptionCount = 0;
-  vertex_state.vertexAttributeDescriptionCount = 0;
+  vertex_state.vertexBindingDescriptionCount = 1;
+  vertex_state.pVertexBindingDescriptions = &bind_desc;
+  vertex_state.vertexAttributeDescriptionCount = 2;
+  vertex_state.pVertexAttributeDescriptions = attributes;
 
   VkPipelineInputAssemblyStateCreateInfo input_assemble = {0};
   input_assemble.sType =
@@ -854,6 +871,69 @@ void vk_render_set_viewport(struct vk_state state,
   scissor.extent.width = width;
   scissor.extent.height = height;
   vkCmdSetScissor(state.command_buffer, 0, 1, &scissor);
+}
+
+struct vk_buffer_info {
+  VkDevice device;
+  VkPhysicalDevice physical_device;
+  uint64_t size;
+  VkBufferUsageFlagBits usage;
+  union vk_queue_family queue_family;
+  VkMemoryPropertyFlags flags;
+};
+
+struct vk_buffer {
+  VkBuffer buffer;
+  VkDeviceMemory memory;
+};
+
+uint32_t vk_find_suitable_memory_type(VkMemoryRequirements requirements,
+  VkPhysicalDeviceMemoryProperties properties, uint32_t required_flags) {
+
+  for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
+    VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
+    if ((requirements.memoryTypeBits & (1 << i))
+      && (flags & required_flags) == required_flags)
+      return i;
+  }
+
+  return UINT32_MAX;
+}
+
+struct vk_buffer vk_create_buffer(struct vk_buffer_info buffer_info) {
+  
+  struct vk_buffer buffer = {0};
+
+  VkBufferCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  create_info.size = buffer_info.size;
+  create_info.usage = buffer_info.usage;
+  create_info.sharingMode = VK_SHARING_MODE_CONCURRENT;
+  create_info.queueFamilyIndexCount =
+    SIZEOF_ARRAY(buffer_info.queue_family.families);
+
+  create_info.pQueueFamilyIndices = buffer_info.queue_family.families;
+
+  vkCreateBuffer(buffer_info.device, &create_info, 0, &buffer.buffer);
+
+  VkMemoryRequirements requirements;
+  vkGetBufferMemoryRequirements(buffer_info.device, buffer.buffer,
+    &requirements);
+
+  VkPhysicalDeviceMemoryProperties properties;
+  vkGetPhysicalDeviceMemoryProperties(buffer_info.physical_device, &properties);
+
+  VkMemoryAllocateInfo allocate_info = {0};
+  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocate_info.allocationSize = requirements.size;
+  allocate_info.memoryTypeIndex =
+    vk_find_suitable_memory_type(requirements, properties, buffer_info.flags);
+
+  vkAllocateMemory(buffer_info.device, &allocate_info, 0, &buffer.memory);
+
+  vkBindBufferMemory(buffer_info.device, buffer.buffer, buffer.memory, 0);
+
+  return buffer;
 }
 
 #endif  // SLN_VULKAN
