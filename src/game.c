@@ -56,12 +56,7 @@ void tmp_sln_vertex(void) {
 
 void sln_init(struct vk_surface surface) {
 
-  struct vk_initialise_info init_info = {0};
-  init_info.extent.width = SLN_WINDOW_WIDTH;
-  init_info.extent.height = SLN_WINDOW_HEIGHT;
-  init_info.surface = surface;
-
-  vulkan = vk_init(init_info);
+  vulkan = vk_init(surface);
 
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);

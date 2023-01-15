@@ -1,3 +1,4 @@
+#ifdef SLN_VULKAN
 #ifdef SLN_WIN64
 
 /**
@@ -21,4 +22,5 @@ void vk_win64(struct vk_state *state, struct vk_surface appsurface) {
   vkCreateWin32SurfaceKHR(state->instance, &create_info, 0, &state->surface);
 }
 
-#endif
+#endif  // SLN_WIN64
+#endif  // SLN_VULKAN
