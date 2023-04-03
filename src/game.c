@@ -5,16 +5,9 @@
 
 #define SLN_WINDOW_WIDTH 1280
 #define SLN_WINDOW_HEIGHT 720
-
-#include "macros.c"
-
 #define SLN_FRAMEBUFFER_COUNT 2
 
-struct vk_vertex {
-  float position[2];
-  float color[3];
-};
-
+#include "macros.c"
 #include "graphics/vulkan_init.c"
 #include "file.c"
 
@@ -25,7 +18,6 @@ struct sln_resources {
 
 static struct vk_state vulkan;
 static struct sln_resources resources;
-
 
 void sln_load_shaders(void) {
 
@@ -44,7 +36,7 @@ void sln_load_models(void) {
 
   struct vk_vertex vertices[] = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
   };
 

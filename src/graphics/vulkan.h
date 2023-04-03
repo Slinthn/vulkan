@@ -6,6 +6,11 @@ union vk_queue_family {
   uint32_t families[2];
 };
 
+struct vk_vertex {
+  float position[2];
+  float color[3];
+};
+
 struct vk_shader {
   VkPipeline pipeline;
 };
