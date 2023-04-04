@@ -1,14 +1,9 @@
-/**
- * @brief Main game code 
- *  
- */
-
-#define SLN_WINDOW_WIDTH 1280
-#define SLN_WINDOW_HEIGHT 720
+#define SLN_WINDOW_WIDTH 1920
+#define SLN_WINDOW_HEIGHT 1080
 #define SLN_FRAMEBUFFER_COUNT 2
 
 #include "macros.c"
-#include "graphics/vulkan_init.c"
+#include "graphics/vulkan.c"
 #include "file.c"
 
 struct sln_resources {
@@ -16,11 +11,17 @@ struct sln_resources {
   struct vk_buffer vertex_buffer;
 };
 
+// TODO: daz no good...
 static struct vk_state vulkan;
 static struct sln_resources resources;
 
+/**
+ * @brief Load the shaders for the game
+ * 
+ */
 void sln_load_shaders(void) {
 
+  // Default shader
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
@@ -32,6 +33,10 @@ void sln_load_shaders(void) {
   sln_close_file(fragment_file);
 }
 
+/**
+ * @brief Load the models for the game
+ * 
+ */
 void sln_load_models(void) {
 
   struct vk_vertex vertices[] = {
@@ -44,6 +49,11 @@ void sln_load_models(void) {
     sizeof(vertices));
 }
 
+/**
+ * @brief Initialise the game
+ * 
+ * @param surface OS Vulkan surface
+ */
 void sln_init(struct vk_surface surface) {
 
   vulkan = vk_init(surface);
@@ -51,6 +61,11 @@ void sln_init(struct vk_surface surface) {
   sln_load_models();
 }
 
+/**
+ * @brief Call once per frame to update the game and render
+ * 
+ * @param app Game information
+ */
 void sln_update(struct sln_app app) {
 
   vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1});

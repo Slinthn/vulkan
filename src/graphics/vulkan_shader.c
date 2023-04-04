@@ -150,6 +150,16 @@ void vk_create_shader_module(VkDevice device, void *code, uint64_t size,
   vkCreateShaderModule(device, &create_info, 0, module);
 }
 
+/**
+ * @brief Create a vertex and fragment shader into a single graphics pipeline
+ * 
+ * @param state Vulkan state
+ * @param vertex_data Vertex shader data
+ * @param vertex_size Vertex shader size in bytes
+ * @param fragment_data Fragment shader data
+ * @param fragment_size Fragment shader size in bytes
+ * @return struct vk_shader Created shader information
+ */
 struct vk_shader vk_create_shader(struct vk_state *state, void *vertex_data,
   uint64_t vertex_size, void *fragment_data, uint64_t fragment_size) {
 

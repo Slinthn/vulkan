@@ -1,8 +1,3 @@
-/**
- * @brief Vulkan implementation code
- * 
- */
-
 #ifdef SLN_VULKAN
 
 #include "vulkan.h"
@@ -10,82 +5,7 @@
 #include "vulkan_render.c"
 #include "vulkan_shader.c"
 #include "vulkan_buffer.c"
-
-#ifdef SLN_DEBUG
-
-#pragma warning(disable:4100)
-/**
- * @brief Vulkan debug message handler. Called by Vulkan when a message is to
- *   be printed to the console
- * 
- * @param severity Severity of the message
- * @param type Type of message
- * @param callback_data Data of message
- * @param user_data User-defined data (in VkDebugUtilsMessengerCreateInfoEXT)
- * @return VKAPI_ATTR Return code
- */
-VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
-  VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-  VkDebugUtilsMessageTypeFlagsEXT type,
-  const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
-  void *user_data) {
-#pragma warning(default:4100)
-
-  if (severity & (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)) {
-    OutputDebugString(callback_data->pMessage);
-    OutputDebugString("\n");
-  }
-
-  return VK_FALSE;
-}
-
-/**
- * @brief Utility function to create and populate a
- *   VkDebugUtilsMessengerCreateInfoEXT structure
- * 
- * @return VkDebugUtilsMessengerCreateInfoEXT Populated structure
- */
-VkDebugUtilsMessengerCreateInfoEXT vk_populate_debug_struct(void) {
-
-  VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
-  create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  create_info.messageSeverity =
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-
-  create_info.messageType =
-    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
-
-  create_info.pfnUserCallback = vk_debug_callback;
-
-  return create_info;
-}
-
-/**
- * @brief Initialise the debug messaging function of Vulkan
- * 
- * @param state Vulkan state
- */
-void vk_create_debug_messenger(struct vk_state *state) {
-
-  VkDebugUtilsMessengerCreateInfoEXT create_info = vk_populate_debug_struct();
-
-  // Extension function not loaded automatically
-  PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
-    (PFN_vkCreateDebugUtilsMessengerEXT)(void *)vkGetInstanceProcAddr(
-    state->instance, "vkCreateDebugUtilsMessengerEXT");
-
-  vkCreateDebugUtilsMessengerEXT(state->instance, &create_info, 0,
-    &state->debug_messenger);
-}
-
-#endif  // SLN_DEBUG
+#include "vulkan_debug.c"
 
 /**
  * @brief Creates a Vulkan 1.0 instance, with surface support and debug
@@ -93,17 +13,22 @@ void vk_create_debug_messenger(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_instance(struct vk_state *state) {
+void _vk_create_instance(struct vk_state *state) {
 
   VkApplicationInfo app_info = {0};
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app_info.apiVersion = VK_API_VERSION_1_0;
 
-  char *layers[] = {
+  VkInstanceCreateInfo create_info = {0};
+
 #ifdef SLN_DEBUG
+  char *layers[] = {
     "VK_LAYER_KHRONOS_validation"
-#endif  // SLN_DEBUG
   };
+
+  create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
+  create_info.ppEnabledLayerNames = layers;
+#endif  // SLN_DEBUG
 
   char *extensions[] = {
     "VK_KHR_surface",
@@ -117,17 +42,14 @@ void vk_create_instance(struct vk_state *state) {
 #endif  // SLN_WIN64
   };
 
-  VkInstanceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
-  create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
-  create_info.ppEnabledLayerNames = layers;
   create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
   create_info.ppEnabledExtensionNames = extensions;
 
 #ifdef SLN_DEBUG
   VkDebugUtilsMessengerCreateInfoEXT messenger_create_info =
-    vk_populate_debug_struct();
+    _vk_populate_debug_struct();
 
   create_info.pNext = &messenger_create_info;
 #endif
@@ -141,7 +63,7 @@ void vk_create_instance(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_select_suitable_physical_device(struct vk_state *state) {
+void _vk_select_suitable_physical_device(struct vk_state *state) {
 
   // TODO: VkPhysicalDeviceLimits?
 
@@ -178,7 +100,7 @@ search_complete:
  * 
  * @param state Vulkan state
  */
-void vk_select_suitable_queue_families(struct vk_state *state) {
+void _vk_select_suitable_queue_families(struct vk_state *state) {
 
   uint32_t family_count;
   vkGetPhysicalDeviceQueueFamilyProperties(state->physical_device,
@@ -210,15 +132,15 @@ void vk_select_suitable_queue_families(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_device_and_queue(struct vk_state *state) {
+void _vk_create_device_and_queue(struct vk_state *state) {
 
   float queue_priority = 1;
 
   VkDeviceQueueCreateInfo *queue_info =
-    calloc(1, SIZEOF_ARRAY(
-    state->queue_family.families) * sizeof(VkDeviceQueueCreateInfo));
+    calloc(1, SIZEOF_ARRAY(state->queue_family.families)
+      * sizeof(VkDeviceQueueCreateInfo));
 
-  for (uint32_t i = 0; i < SIZEOF_ARRAY( state->queue_family.families); i++) {
+  for (uint32_t i = 0; i < SIZEOF_ARRAY(state->queue_family.families); i++) {
     queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_info[i].queueFamilyIndex = state->queue_family.families[i];
     queue_info[i].queueCount = 1;
@@ -253,7 +175,7 @@ void vk_create_device_and_queue(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_select_suitable_surface_format(struct vk_state *state) {
+void _vk_select_suitable_surface_format(struct vk_state *state) {
 
   uint32_t surface_format_count; 
   vkGetPhysicalDeviceSurfaceFormatsKHR(state->physical_device, state->surface,
@@ -274,6 +196,7 @@ void vk_select_suitable_surface_format(struct vk_state *state) {
       }
   }
 
+  // Fallback surface
   state->surface_format = surface_formats[0];
 
 complete:
@@ -285,7 +208,7 @@ complete:
  * 
  * @param state Vulkan state
  */
-void vk_create_swapchain(struct vk_state *state) {
+void _vk_create_swapchain(struct vk_state *state) {
 
   state->extent.width = SLN_WINDOW_WIDTH;
   state->extent.height = SLN_WINDOW_HEIGHT;
@@ -303,7 +226,7 @@ void vk_create_swapchain(struct vk_state *state) {
   VkSwapchainCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = state->surface;
-  create_info.minImageCount = SLN_FRAMEBUFFER_COUNT;  // TODO: is this ok?
+  create_info.minImageCount = SLN_FRAMEBUFFER_COUNT;
   create_info.imageFormat = state->surface_format.format;
   create_info.imageColorSpace = state->surface_format.colorSpace;
   create_info.imageExtent = state->extent;
@@ -314,7 +237,9 @@ void vk_create_swapchain(struct vk_state *state) {
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   } else {
     create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    create_info.queueFamilyIndexCount = 2;
+    create_info.queueFamilyIndexCount =
+      SIZEOF_ARRAY(state->queue_family.families);
+
     create_info.pQueueFamilyIndices = state->queue_family.families;
   }
 
@@ -335,7 +260,7 @@ void vk_create_swapchain(struct vk_state *state) {
  * @param view Returns image view
  * @return VkResult Vulkan errors
  */
-void vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
+void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
   VkImageView *view) {
 
   VkImageViewCreateInfo create_info = {0};
@@ -364,7 +289,7 @@ void vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
  * @param framebuffer Returns the framebuffer
  * @return VkResult 
  */
-void vk_create_framebuffer(VkDevice device, VkExtent2D extent,
+void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
   VkRenderPass render_pass, VkImageView image_view,
   VkFramebuffer *framebuffer) {
 
@@ -385,7 +310,7 @@ void vk_create_framebuffer(VkDevice device, VkExtent2D extent,
  * 
  * @param state Vulkan state
  */
-void vk_get_swapchain_images(struct vk_state *state) {
+void _vk_get_swapchain_images(struct vk_state *state) {
 
   uint32_t image_count;
   vkGetSwapchainImagesKHR(state->device, state->swapchain, &image_count, 0);
@@ -397,10 +322,10 @@ void vk_get_swapchain_images(struct vk_state *state) {
 
   for (uint32_t i = 0; i < image_count
     && i < SLN_FRAMEBUFFER_COUNT; i++) {
-    vk_get_image_view(state->device, images[i], state->surface_format.format,
+    _vk_get_image_view(state->device, images[i], state->surface_format.format,
       &state->framebuffers[i].view);
 
-    vk_create_framebuffer(state->device, state->extent,
+    _vk_create_framebuffer(state->device, state->extent,
       state->render_pass,
       state->framebuffers[i].view,
       &state->framebuffers[i].framebuffer);
@@ -414,7 +339,7 @@ void vk_get_swapchain_images(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_render_pass(struct vk_state *state) {
+void _vk_create_render_pass(struct vk_state *state) {
 
   VkAttachmentDescription attachment = {0};
   attachment.format = state->surface_format.format;
@@ -450,7 +375,7 @@ void vk_create_render_pass(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_command_pool(struct vk_state *state) {
+void _vk_create_command_pool(struct vk_state *state) {
 
   VkCommandPoolCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -465,7 +390,7 @@ void vk_create_command_pool(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_command_buffer(struct vk_state *state) {
+void _vk_create_command_buffer(struct vk_state *state) {
 
   VkCommandBufferAllocateInfo allocate_info = {0};
   allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -478,11 +403,11 @@ void vk_create_command_buffer(struct vk_state *state) {
 }
 
 /**
- * @brief Create a Vulkan semaphore
+ * @brief Create Vulkan semaphores
  * 
  * @param state Vulkan state
  */
-void vk_create_semaphore(struct vk_state *state) {
+void _vk_create_semaphores(struct vk_state *state) {
 
   VkSemaphoreCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -499,7 +424,7 @@ void vk_create_semaphore(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void vk_create_fence(struct vk_state *state) {
+void _vk_create_fence(struct vk_state *state) {
 
   VkFenceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -508,7 +433,7 @@ void vk_create_fence(struct vk_state *state) {
   vkCreateFence(state->device, &create_info, 0, &state->render_ready_fence);
 }
 
-void vk_initialise_surface(struct vk_state *state,
+void _vk_initialise_surface(struct vk_state *state,
   struct vk_surface appsurface) {
 
 #ifdef SLN_WIN64
@@ -531,25 +456,24 @@ struct vk_state vk_init(struct vk_surface surface) {
 
   struct vk_state state = {0};
 
-  vk_create_instance(&state);
+  _vk_create_instance(&state);
 
 #ifdef SLN_DEBUG
-  vk_create_debug_messenger(&state);
+  _vk_create_debug_messenger(&state);
 #endif
 
-  vk_select_suitable_physical_device(&state);
-  vk_initialise_surface(&state, surface);
-  vk_select_suitable_surface_format(&state);
-  vk_select_suitable_queue_families(&state);
-  vk_create_device_and_queue(&state);
-  vk_create_swapchain(&state);
-  vk_create_render_pass(&state);
-  vk_create_command_pool(&state);
-  vk_create_command_buffer(&state);
-  vk_get_swapchain_images(&state);
-  vk_create_semaphore(&state);
-  vk_create_semaphore(&state);
-  vk_create_fence(&state);
+  _vk_select_suitable_physical_device(&state);
+  _vk_initialise_surface(&state, surface);
+  _vk_select_suitable_surface_format(&state);
+  _vk_select_suitable_queue_families(&state);
+  _vk_create_device_and_queue(&state);
+  _vk_create_swapchain(&state);
+  _vk_create_render_pass(&state);
+  _vk_create_command_pool(&state);
+  _vk_create_command_buffer(&state);
+  _vk_get_swapchain_images(&state);
+  _vk_create_semaphores(&state);
+  _vk_create_fence(&state);
 
   return state;
 }

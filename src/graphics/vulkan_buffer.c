@@ -1,6 +1,14 @@
 #ifdef SLN_VULKAN
 
-uint32_t vk_find_suitable_memory_type(VkMemoryRequirements requirements,
+/**
+ * @brief Select a suitable memory type for a buffer's requirements
+ * 
+ * @param requirements The requirements of the buffer
+ * @param properties The memory allocation types of the GPU
+ * @param required_flags Required flags for the memory type to have
+ * @return uint32_t Suitable memory index, or UINT32_MAX if none found
+ */
+uint32_t _vk_find_suitable_memory_type(VkMemoryRequirements requirements,
   VkPhysicalDeviceMemoryProperties properties, uint32_t required_flags) {
 
   for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
@@ -13,6 +21,15 @@ uint32_t vk_find_suitable_memory_type(VkMemoryRequirements requirements,
   return UINT32_MAX;
 }
 
+/**
+ * @brief Creates a Vulkan buffer
+ * 
+ * @param state Vulkan state
+ * @param bytes Size of the buffer in bytes
+ * @param usage Usage flag bits
+ * @param flags Property flag bits
+ * @return struct vk_buffer Created buffer
+ */
 struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
   VkBufferUsageFlagBits usage, VkMemoryPropertyFlags flags) {
   
@@ -41,7 +58,7 @@ struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
   allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocate_info.allocationSize = requirements.size;
   allocate_info.memoryTypeIndex =
-    vk_find_suitable_memory_type(requirements, properties, flags);
+    _vk_find_suitable_memory_type(requirements, properties, flags);
 
   vkAllocateMemory(state->device, &allocate_info, 0, &buffer.memory);
 
@@ -50,6 +67,14 @@ struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
   return buffer;
 }
 
+/**
+ * @brief Create a vertex buffer
+ * 
+ * @param state Vulkan state
+ * @param data Data to insert into the vertex buffer
+ * @param data_size Size of data in bytes
+ * @return struct vk_buffer The created vertex buffer information
+ */
 struct vk_buffer vk_create_vertex_buffer(struct vk_state *state,
   void *data, uint64_t data_size) {
 

@@ -1,5 +1,11 @@
 #ifdef SLN_VULKAN
 
+/**
+ * @brief Begin the render pass
+ * 
+ * @param state Vulkan state
+ * @param clear_color Clear colour for the screen, in format RGBA
+ */
 void vk_render_begin(struct vk_state *state, float clear_color[4]) {
 
   vkWaitForFences(state->device, 1, &state->render_ready_fence, 1, UINT64_MAX);
