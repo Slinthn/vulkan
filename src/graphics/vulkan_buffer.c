@@ -92,4 +92,35 @@ struct vk_buffer vk_create_vertex_buffer(struct vk_state *state,
   return buffer;
 }
 
+/**
+ * @brief Create a index buffer
+ * 
+ * @param state Vulkan state
+ * @param indices Index data
+ * @param index_count Number of indices
+ * @return struct vk_buffer The created index buffer information
+ */
+struct vk_index_buffer vk_create_index_buffer(struct vk_state *state,
+  uint32_t *indices, uint32_t index_count) {
+
+  uint64_t data_size = sizeof(uint32_t) * index_count;
+
+  struct vk_index_buffer buffer = {0};
+
+  buffer.buffer = vk_create_buffer(state, data_size,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+    | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  uint8_t *data_ptr;
+  vkMapMemory(state->device, buffer.buffer.memory, 0,
+    VK_WHOLE_SIZE, 0, &data_ptr);
+
+  memcpy(data_ptr, indices, data_size);
+  vkUnmapMemory(state->device, buffer.buffer.memory);
+
+  buffer.index_count = index_count;
+
+  return buffer;
+}
+
 #endif  // SLN_VULKAN

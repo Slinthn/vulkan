@@ -4,8 +4,6 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.h>
 #pragma warning(pop)
 
 struct vk_surface {

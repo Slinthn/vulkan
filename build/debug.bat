@@ -9,6 +9,8 @@ cls
 
 pushd ..\bin
 
+py ../scripts/ply.py ../res/cube.ply cube.sm
+
 glslc.exe ..\src\graphics\glsl\shader.vert -o shader-v.spv
 glslc.exe ..\src\graphics\glsl\shader.frag -o shader-f.spv
 

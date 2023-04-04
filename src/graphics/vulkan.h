@@ -6,11 +6,6 @@ union vk_queue_family {
   uint32_t families[2];
 };
 
-struct vk_vertex {
-  float position[2];
-  float color[3];
-};
-
 struct vk_shader {
   VkPipeline pipeline;
 };
@@ -47,4 +42,10 @@ struct vk_state {
 struct vk_buffer {
   VkBuffer buffer;
   VkDeviceMemory memory;
+};
+
+struct vk_index_buffer {
+  struct vk_buffer buffer;
+  uint32_t index_count;
+  uint32_t unused;
 };

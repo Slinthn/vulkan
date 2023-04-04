@@ -2,14 +2,38 @@
 #define SLN_WINDOW_HEIGHT 1080
 #define SLN_FRAMEBUFFER_COUNT 2
 
+#ifdef SLN_VULKAN
+#pragma warning(push, 0)
+#define VK_USE_PLATFORM_WIN32_KHR
+#include <vulkan/vulkan.h>
+#pragma warning(pop)
+#endif  // SLN_VULKAN
+
 #include "macros.c"
 #include "graphics/vulkan.c"
 #include "file.c"
 
+struct sln_model {
+  struct vk_buffer vertex_buffer;
+  struct vk_index_buffer index_buffer;
+};
+
 struct sln_resources {
   struct vk_shader shader;
+  struct sln_model model;
   struct vk_buffer vertex_buffer;
+  struct vk_index_buffer index_buffer;
 };
+
+#pragma pack(push, 1)
+struct sln_vertex {
+  float position[3];
+  float texture[2];
+  float normal[3];
+};
+#pragma pack(pop)
+
+#include "model/sm.c"
 
 // TODO: daz no good...
 static struct vk_state vulkan;
@@ -39,14 +63,7 @@ void sln_load_shaders(void) {
  */
 void sln_load_models(void) {
 
-  struct vk_vertex vertices[] = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
-  };
-
-  resources.vertex_buffer = vk_create_vertex_buffer(&vulkan, vertices,
-    sizeof(vertices));
+  resources.model = sln_load_sm(vulkan, "cube.sm");
 }
 
 /**
@@ -75,8 +92,13 @@ void sln_update(struct sln_app app) {
   VkDeviceSize offsets[1] = {0};
 
   vkCmdBindVertexBuffers(vulkan.command_buffer, 0, 1,
-    &resources.vertex_buffer.buffer, offsets);
+    &resources.model.vertex_buffer.buffer, offsets);
 
-  vkCmdDraw(vulkan.command_buffer, 3, 1, 0, 0);
+  vkCmdBindIndexBuffer(vulkan.command_buffer,
+    resources.model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+  vkCmdDrawIndexed(vulkan.command_buffer, resources.model.index_buffer.index_count,
+    1, 0, 0, 0);
+
   vk_render_end(vulkan);
 }

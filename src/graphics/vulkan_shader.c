@@ -23,13 +23,21 @@ void vk_create_pipeline_layout(VkDevice device,
  * @param extent Dimensions of framebuffer
  * @param vertex_stage Vertex shader
  * @param fragment_stage Fragment shader
+ * @param render_pass Vulkan render pass to attach pipeline to
+ * @param bind_desc Vulkan bind description, i.e. stride and vertex format
+ * @param attributes Array of vertex attributes, i.e. position, texture, normal
+ * @param attribute_count Number of items in attributes array
  * @param pipeline Returns the created graphics pipeline
  * @return VkResult Vulkan errors
  */
-void vk_create_graphics_pipeline(VkDevice device,
+void _vk_create_graphics_pipeline(VkDevice device,
   VkPipelineShaderStageCreateInfo vertex_stage,
   VkPipelineShaderStageCreateInfo fragment_stage,
-  VkRenderPass render_pass, VkPipeline *pipeline) {
+  VkRenderPass render_pass,
+  VkVertexInputBindingDescription bind_desc,
+  VkVertexInputAttributeDescription *attributes,
+  uint32_t attribute_count,
+  VkPipeline *pipeline) {
 
   VkPipelineLayout pipeline_layout;
   vk_create_pipeline_layout(device, &pipeline_layout);
@@ -37,28 +45,13 @@ void vk_create_graphics_pipeline(VkDevice device,
   VkPipelineShaderStageCreateInfo stages[] =
     {vertex_stage, fragment_stage};
 
-  VkVertexInputBindingDescription bind_desc = {0};
-  bind_desc.binding = 0;
-  bind_desc.stride = sizeof(struct vk_vertex);
-  bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-  VkVertexInputAttributeDescription attributes[2] = {0};
-  attributes[0].location = 0;
-  attributes[0].binding = 0;
-  attributes[0].format = VK_FORMAT_R32G32_SFLOAT;
-  attributes[0].offset = 0;
-  attributes[1].location = 1;
-  attributes[1].binding = 0;
-  attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attributes[1].offset = sizeof(float) * 2;
-
   VkPipelineVertexInputStateCreateInfo vertex_state = {0};
   vertex_state.sType =
     VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   
   vertex_state.vertexBindingDescriptionCount = 1;
   vertex_state.pVertexBindingDescriptions = &bind_desc;
-  vertex_state.vertexAttributeDescriptionCount = 2;
+  vertex_state.vertexAttributeDescriptionCount = attribute_count;
   vertex_state.pVertexAttributeDescriptions = attributes;
 
   VkPipelineInputAssemblyStateCreateInfo input_assemble = {0};
@@ -139,7 +132,7 @@ void vk_create_graphics_pipeline(VkDevice device,
  * @param module Returns the created shader module
  * @return VkResult Vulkan errors
  */
-void vk_create_shader_module(VkDevice device, void *code, uint64_t size,
+void _vk_create_shader_module(VkDevice device, void *code, uint64_t size,
   VkShaderModule *module) {
 
   VkShaderModuleCreateInfo create_info = {0};
@@ -172,7 +165,7 @@ struct vk_shader vk_create_shader(struct vk_state *state, void *vertex_data,
   vertex_stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
   vertex_stage.pName = "main";
 
-  vk_create_shader_module(state->device, vertex_data,
+  _vk_create_shader_module(state->device, vertex_data,
     vertex_size, &vertex_stage.module);
 
   VkPipelineShaderStageCreateInfo fragment_stage = {0};
@@ -182,11 +175,32 @@ struct vk_shader vk_create_shader(struct vk_state *state, void *vertex_data,
   fragment_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
   fragment_stage.pName = "main";
 
-  vk_create_shader_module(state->device, fragment_data,
+  _vk_create_shader_module(state->device, fragment_data,
     fragment_size, &fragment_stage.module);
   
-  vk_create_graphics_pipeline(state->device, vertex_stage, fragment_stage,
-    state->render_pass, &shader.pipeline);
+  // TODO: these are hardcoded?
+  VkVertexInputBindingDescription bind_desc = {0};
+  bind_desc.binding = 0;
+  bind_desc.stride = 32;
+  bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription attributes[3] = {0};
+  attributes[0].location = 0;
+  attributes[0].binding = 0;
+  attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+  attributes[0].offset = 0;
+  attributes[1].location = 1;
+  attributes[1].binding = 0;
+  attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
+  attributes[1].offset = sizeof(float) * 3;
+  attributes[2].location = 2;
+  attributes[2].binding = 0;
+  attributes[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+  attributes[2].offset = sizeof(float) * 5;
+
+  _vk_create_graphics_pipeline(state->device, vertex_stage, fragment_stage,
+    state->render_pass, bind_desc, attributes, SIZEOF_ARRAY(attributes),
+    &shader.pipeline);
 
   return shader;
 }
