@@ -21,11 +21,13 @@ void vk_render_begin(struct vk_state *state, float clear_color[4]) {
 
   vkBeginCommandBuffer(state->command_buffer, &begin_info);
 
-  VkClearValue clear_value = {0};
-  clear_value.color.float32[0] = clear_color[0];
-  clear_value.color.float32[1] = clear_color[1];
-  clear_value.color.float32[2] = clear_color[2];
-  clear_value.color.float32[3] = clear_color[3];
+  VkClearValue clear_value[2] = {0};
+  clear_value[0].color.float32[0] = clear_color[0];
+  clear_value[0].color.float32[1] = clear_color[1];
+  clear_value[0].color.float32[2] = clear_color[2];
+  clear_value[0].color.float32[3] = clear_color[3];
+
+  clear_value[1].depthStencil.depth = 1.0f;
 
   VkRenderPassBeginInfo render_pass_info = {0};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -36,8 +38,8 @@ void vk_render_begin(struct vk_state *state, float clear_color[4]) {
   render_pass_info.renderArea.offset.x = 0;
   render_pass_info.renderArea.offset.y = 0;
   render_pass_info.renderArea.extent = state->extent;
-  render_pass_info.clearValueCount = 1;
-  render_pass_info.pClearValues = &clear_value;
+  render_pass_info.clearValueCount = SIZEOF_ARRAY(clear_value);
+  render_pass_info.pClearValues = clear_value;
 
   vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
     VK_SUBPASS_CONTENTS_INLINE);

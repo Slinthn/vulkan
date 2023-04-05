@@ -6,6 +6,7 @@
 #include "vulkan_buffer.c"
 #include "vulkan_shader.c"
 #include "vulkan_debug.c"
+#include "vulkan_image.c"
 
 /**
  * @brief Creates a Vulkan 1.0 instance, with surface support and debug
@@ -252,7 +253,7 @@ void _vk_create_swapchain(struct vk_state *state) {
 }
 
 /**
- * @brief Creates an image view for the passed image
+ * @brief Creates an image view for the passed image TODO:
  * 
  * @param device Vulkan device
  * @param image Image to use
@@ -261,7 +262,7 @@ void _vk_create_swapchain(struct vk_state *state) {
  * @return VkResult Vulkan errors
  */
 void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
-  VkImageView *view) {
+  VkImageAspectFlags flags, VkImageView *view) {
 
   VkImageViewCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -272,7 +273,7 @@ void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
   create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
   create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
   create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  create_info.subresourceRange.aspectMask = flags;
   create_info.subresourceRange.levelCount = 1;
   create_info.subresourceRange.layerCount = 1;
 
@@ -290,14 +291,16 @@ void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
  * @return VkResult 
  */
 void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
-  VkRenderPass render_pass, VkImageView image_view,
+  VkRenderPass render_pass, VkImageView colour_view, VkImageView depth_view,
   VkFramebuffer *framebuffer) {
+
+    VkImageView view[] = {colour_view, depth_view};
 
   VkFramebufferCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   create_info.renderPass = render_pass;
-  create_info.attachmentCount = 1;
-  create_info.pAttachments = &image_view;
+  create_info.attachmentCount = SIZEOF_ARRAY(view);
+  create_info.pAttachments = view;
   create_info.width = extent.width;
   create_info.height = extent.height;
   create_info.layers = 1;
@@ -320,14 +323,20 @@ void _vk_get_swapchain_images(struct vk_state *state) {
   vkGetSwapchainImagesKHR(state->device, state->swapchain,
     &image_count, images);
 
+  struct vk_image depth_image = vk_create_depth_buffer(state);
+
+  VkImageView depth_view;
+  _vk_get_image_view(state->device, depth_image.image, VK_FORMAT_D32_SFLOAT,
+      VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
+
   for (uint32_t i = 0; i < image_count
     && i < SLN_FRAMEBUFFER_COUNT; i++) {
     _vk_get_image_view(state->device, images[i], state->surface_format.format,
-      &state->framebuffers[i].view);
+      VK_IMAGE_ASPECT_COLOR_BIT, &state->framebuffers[i].view);
 
     _vk_create_framebuffer(state->device, state->extent,
       state->render_pass,
-      state->framebuffers[i].view,
+      state->framebuffers[i].view, depth_view,
       &state->framebuffers[i].framebuffer);
   }
 
@@ -341,39 +350,58 @@ void _vk_get_swapchain_images(struct vk_state *state) {
  */
 void _vk_create_render_pass(struct vk_state *state) {
 
-  VkAttachmentDescription attachment = {0};
-  attachment.format = state->surface_format.format;
-  attachment.samples = 1;
-  attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  VkAttachmentDescription attachment[2] = {0};
+  // Colour
+  attachment[0].format = state->surface_format.format;
+  attachment[0].samples = 1;
+  attachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  attachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+  // Depth stencil
+  attachment[1].format = VK_FORMAT_D32_SFLOAT;  // TODO: good?
+  attachment[1].samples = 1;
+  attachment[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachment[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachment[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachment[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachment[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachment[1].finalLayout =
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   VkAttachmentReference colour_reference = {0};
   colour_reference.attachment = 0;
   colour_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-/*
   VkAttachmentReference depth_reference = {0};
-  depth_reference.attachment = 0;  // TODO: 1 or 0?
+  depth_reference.attachment = 1;
   depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-*/
-  VkSubpassDescription subpass[2] = {0};  // TODO: check if this is good
-  subpass[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass[0].colorAttachmentCount = 1;
-  subpass[0].pColorAttachments = &colour_reference;
-  //subpass[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  //subpass[1].colorAttachmentCount = 0;
-  //subpass[1].pDepthStencilAttachment = &depth_reference;
+
+  VkSubpassDescription subpass = {0};  // TODO: check if this is good
+  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount = 1;
+  subpass.pColorAttachments = &colour_reference;
+  subpass.pDepthStencilAttachment = &depth_reference;
+
+  VkSubpassDependency dependency = {0};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
   VkRenderPassCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  create_info.attachmentCount = 1;
-  create_info.pAttachments = &attachment;
-  create_info.subpassCount = 1;  // TODO: 
-  create_info.pSubpasses = subpass;
+  create_info.attachmentCount = SIZEOF_ARRAY(attachment);
+  create_info.pAttachments = attachment;
+  create_info.subpassCount = 1;
+  create_info.pSubpasses = &subpass;
+  create_info.dependencyCount = 1;
+  create_info.pDependencies = &dependency;
 
   vkCreateRenderPass(state->device, &create_info, 0, &state->render_pass);
 }
@@ -449,16 +477,6 @@ void _vk_initialise_surface(struct vk_state *state,
 #else
   #error "No Vulkan surface has been selected."
 #endif
-}
-
-void vk_create_depth_buffer(void) {
-
-  // TODO:
-  // vkGetPhysicalDeviceFormatProperties
-  // Update Render Pass function
-  // Get Framebuffer
-  // Clear values
-  // VkPipelineDepthStencilStateCreateInfo and VkPipeline
 }
 
 /**

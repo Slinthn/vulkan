@@ -30,7 +30,7 @@ uint32_t _vk_find_suitable_memory_type(VkMemoryRequirements requirements,
  * @param flags Property flag bits
  * @return struct vk_buffer Created buffer
  */
-struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
+struct vk_buffer _vk_create_buffer(struct vk_state *state, uint64_t bytes,
   VkBufferUsageFlagBits usage, VkMemoryPropertyFlags flags) {
   
   struct vk_buffer buffer = {0};
@@ -39,11 +39,7 @@ struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
   create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   create_info.size = bytes;
   create_info.usage = usage;
-  create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // TODO: concurrent?
-  create_info.queueFamilyIndexCount =
-    SIZEOF_ARRAY(state->queue_family.families);
-
-  create_info.pQueueFamilyIndices = state->queue_family.families;
+  create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   vkCreateBuffer(state->device, &create_info, 0, &buffer.buffer);
 
@@ -78,7 +74,7 @@ struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
 struct vk_buffer vk_create_vertex_buffer(struct vk_state *state,
   void *data, uint64_t data_size) {
 
-  struct vk_buffer buffer = vk_create_buffer(state, data_size,
+  struct vk_buffer buffer = _vk_create_buffer(state, data_size,
     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -107,7 +103,7 @@ struct vk_index_buffer vk_create_index_buffer(struct vk_state *state,
 
   struct vk_index_buffer buffer = {0};
 
-  buffer.buffer = vk_create_buffer(state, data_size,
+  buffer.buffer = _vk_create_buffer(state, data_size,
     VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -135,7 +131,7 @@ struct vk_uniform_buffer vk_create_uniform_buffer(struct vk_state *state,
   struct vk_uniform_buffer buffer = {0};
 
   // TODO: do i need VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  buffer.buffer = vk_create_buffer(state, data_size,
+  buffer.buffer = _vk_create_buffer(state, data_size,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 

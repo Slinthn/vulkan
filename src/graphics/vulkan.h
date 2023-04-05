@@ -65,3 +65,8 @@ struct vk_uniform_buffer0 {
   union matrix4 projection, view, model;
 };
 #pragma pack(pop)
+
+struct vk_image {
+  VkImage image;
+  VkDeviceMemory memory;
+};

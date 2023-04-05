@@ -200,6 +200,15 @@ void _vk_create_graphics_pipeline(struct vk_state *state,
   dynamic_state.dynamicStateCount = SIZEOF_ARRAY(dynamic_states);
   dynamic_state.pDynamicStates = dynamic_states;
 
+  VkPipelineDepthStencilStateCreateInfo depth_state = {0};
+  depth_state.sType =
+    VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  
+  depth_state.depthTestEnable = 1;
+  depth_state.depthWriteEnable = 1;
+  depth_state.depthCompareOp = VK_COMPARE_OP_LESS;
+  // TODO: minDepthBounds, max?
+
   VkGraphicsPipelineCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   create_info.stageCount = 2;
@@ -214,6 +223,7 @@ void _vk_create_graphics_pipeline(struct vk_state *state,
   create_info.layout = *pipeline_layout;
   create_info.renderPass = render_pass;
   create_info.subpass = 0;
+  create_info.pDepthStencilState = &depth_state;
 
   vkCreateGraphicsPipelines(state->device, VK_NULL_HANDLE, 1, &create_info,
     0, pipeline);
