@@ -8,9 +8,11 @@
  * @param required_flags Required flags for the memory type to have
  * @return uint32_t Suitable memory index, or UINT32_MAX if none found
  */
-uint32_t _vk_find_suitable_memory_type(VkMemoryRequirements requirements,
-  VkPhysicalDeviceMemoryProperties properties, uint32_t required_flags) {
-
+uint32_t _vk_find_suitable_memory_type(
+  VkMemoryRequirements requirements,
+  VkPhysicalDeviceMemoryProperties properties,
+  uint32_t required_flags
+) {
   for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
     VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
     if ((requirements.memoryTypeBits & (1 << i))
@@ -30,9 +32,12 @@ uint32_t _vk_find_suitable_memory_type(VkMemoryRequirements requirements,
  * @param flags Property flag bits
  * @return struct vk_buffer Created buffer
  */
-struct vk_buffer _vk_create_buffer(struct vk_state *state, uint64_t bytes,
-  VkBufferUsageFlagBits usage, VkMemoryPropertyFlags flags) {
-  
+struct vk_buffer _vk_create_buffer(
+  struct vk_state *state,
+  uint64_t bytes,
+  VkBufferUsageFlagBits usage,
+  VkMemoryPropertyFlags flags
+) {
   struct vk_buffer buffer = {0};
 
   VkBufferCreateInfo create_info = {0};
@@ -71,9 +76,11 @@ struct vk_buffer _vk_create_buffer(struct vk_state *state, uint64_t bytes,
  * @param data_size Size of data in bytes
  * @return struct vk_buffer The created vertex buffer information
  */
-struct vk_buffer vk_create_vertex_buffer(struct vk_state *state,
-  void *data, uint64_t data_size) {
-
+struct vk_buffer vk_create_vertex_buffer(
+  struct vk_state *state,
+  void *data,
+  uint64_t data_size
+) {
   struct vk_buffer buffer = _vk_create_buffer(state, data_size,
     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -96,9 +103,11 @@ struct vk_buffer vk_create_vertex_buffer(struct vk_state *state,
  * @param index_count Number of indices
  * @return struct vk_buffer The created index buffer information
  */
-struct vk_index_buffer vk_create_index_buffer(struct vk_state *state,
-  uint32_t *indices, uint32_t index_count) {
-
+struct vk_index_buffer vk_create_index_buffer(
+  struct vk_state *state,
+  uint32_t *indices,
+  uint32_t index_count
+) {
   uint64_t data_size = sizeof(uint32_t) * index_count;
 
   struct vk_index_buffer buffer = {0};
@@ -124,13 +133,12 @@ struct vk_index_buffer vk_create_index_buffer(struct vk_state *state,
  * TODO:
  * @return struct vk_uniform_buffer The created uniform buffer information
  */
-struct vk_uniform_buffer vk_create_uniform_buffer(struct vk_state *state,
-  uint32_t data_size) {  // TODO: default data?
-
-  // TODO: vkCreateDescriptorSetLayout, then vk_create_buffer
+struct vk_uniform_buffer vk_create_uniform_buffer(
+  struct vk_state *state,
+  uint32_t data_size
+) {
   struct vk_uniform_buffer buffer = {0};
 
-  // TODO: do i need VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
   buffer.buffer = _vk_create_buffer(state, data_size,
     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -149,8 +157,10 @@ struct vk_uniform_buffer vk_create_uniform_buffer(struct vk_state *state,
  * @param ub 
  * @param data 
  */
-void vk_update_uniform_buffer(struct vk_uniform_buffer ub, void *data) {
-
+void vk_update_uniform_buffer(
+  struct vk_uniform_buffer ub,
+  void *data
+) {
   memcpy(ub.data_ptr, data, ub.data_size);
 }
 

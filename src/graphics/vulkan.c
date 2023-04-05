@@ -15,8 +15,9 @@
  * @param instance Pointer to vulkan instance handle in which the resulting
  *   instance is returned
  */
-void _vk_create_instance(VkInstance *instance) {
-
+void _vk_create_instance(
+  OUT VkInstance *instance
+) {
   VkApplicationInfo app_info = {0};
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app_info.apiVersion = VK_API_VERSION_1_0;
@@ -67,9 +68,10 @@ void _vk_create_instance(VkInstance *instance) {
  * @param physical_device Pointer to a physical device handle in which the
  *   resulting physical device is returned 
  */
-void _vk_select_suitable_physical_device(VkInstance instance,
-  VkPhysicalDevice *physical_device) {
-
+void _vk_select_suitable_physical_device(
+  VkInstance instance,
+  OUT VkPhysicalDevice *physical_device
+) {
   // TODO: VkPhysicalDeviceLimits?
   // TODO: Depth buffer capabilities?
 
@@ -108,9 +110,11 @@ search_complete:
  * @param surface Pointer to Vulkan surface handle in which the resulting handle
  *   is returned
  */
-void _vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
-  VkSurfaceKHR *surface) {
-
+void _vk_initialise_surface(
+  VkInstance instance,
+  struct vk_surface appsurface,
+  OUT VkSurfaceKHR *surface
+) {
 #ifdef SLN_WIN64
   vk_win64(instance, appsurface, surface);
 #else
@@ -126,9 +130,11 @@ void _vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
  * @param queue_family Pointer to queue family in which resulting queue family
  *   information is returned
  */
-void _vk_select_suitable_queue_families(VkPhysicalDevice physical_device,
-  VkSurfaceKHR surface, union vk_queue_family *queue_family) {
-
+void _vk_select_suitable_queue_families(
+  VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface,
+  OUT union vk_queue_family *queue_family
+) {
   uint32_t family_count;
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
     &family_count, 0);
@@ -161,9 +167,11 @@ void _vk_select_suitable_queue_families(VkPhysicalDevice physical_device,
  * @param qf Queue families to use when creating device
  * @param device Returns the handle to the created device
  */
-void _vk_create_device(VkPhysicalDevice physical_device,
-  union vk_queue_family qf, VkDevice *device) {
-
+void _vk_create_device(
+  VkPhysicalDevice physical_device,
+  union vk_queue_family qf,
+  OUT VkDevice *device
+) {
   float queue_priority = 1;
 
   VkDeviceQueueCreateInfo *queue_info =
@@ -201,9 +209,11 @@ void _vk_create_device(VkPhysicalDevice physical_device,
  * @param family Queue families to query
  * @param queues Union of command queues in which queues will be returned in
  */
-void _vk_get_queues(VkDevice device, union vk_queue_family family,
-  union vk_queue *queues) {
-
+void _vk_get_queues(
+  VkDevice device, 
+  union vk_queue_family family,
+  OUT union vk_queue *queues
+) {
   for (uint32_t i = 0; i < VK_QUEUE_COUNT; i++)
     vkGetDeviceQueue(device, family.families[i],
       0, &queues->queues[i]);
@@ -217,9 +227,11 @@ void _vk_get_queues(VkDevice device, union vk_queue_family family,
  * @param surface_format Handle to the surface format in which the chosen
  *   format is returned 
  */
-void _vk_select_suitable_surface_format(VkPhysicalDevice physical_device,
-  VkSurfaceKHR surface, VkSurfaceFormatKHR *surface_format) {
-
+void _vk_select_suitable_surface_format(
+  VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface,
+  OUT VkSurfaceFormatKHR *surface_format
+) {
   uint32_t surface_format_count; 
   vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
     &surface_format_count, 0);
@@ -249,154 +261,81 @@ complete:
 // TODO: Create one for depth stencil bullshit
 
 /**
- * @brief Create a swapchain
+ * @brief TODO
+ * 
+ * @param physical_device 
+ * @param surface 
+ * @param extent 
+ */
+void _vk_calculate_extent(
+  VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface, 
+  OUT VkExtent2D *extent
+) {
+  VkSurfaceCapabilitiesKHR surface_caps;
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
+    surface, &surface_caps);
+
+  extent->width = min(surface_caps.maxImageExtent.width,
+    max(SLN_WINDOW_WIDTH, surface_caps.minImageExtent.width));
+
+  extent->height = min(surface_caps.maxImageExtent.height,
+    max(SLN_WINDOW_HEIGHT, surface_caps.minImageExtent.height));
+}
+
+/**
+ * @brief Create a swapchain TODO:
  * 
  * @param state Vulkan state
  */
-void _vk_create_swapchain(struct vk_state *state) {
-
-  state->extent.width = SLN_WINDOW_WIDTH;
-  state->extent.height = SLN_WINDOW_HEIGHT;
-
-  VkSurfaceCapabilitiesKHR surface_caps;
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state->physical_device,
-    state->surface, &surface_caps);
-
-  state->extent.width = min(surface_caps.maxImageExtent.width,
-    max(state->extent.width, surface_caps.minImageExtent.width));
-
-  state->extent.height = min(surface_caps.maxImageExtent.height,
-    max(state->extent.height, surface_caps.minImageExtent.height));
-
+void _vk_create_swapchain(
+  VkDevice device,
+  VkSurfaceKHR surface,
+  VkSurfaceFormatKHR surface_format,
+  VkExtent2D extent,
+  union vk_queue_family families,
+  OUT VkSwapchainKHR *swapchain
+) {
   VkSwapchainCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create_info.surface = state->surface;
+  create_info.surface = surface;
   create_info.minImageCount = SLN_FRAMEBUFFER_COUNT;
-  create_info.imageFormat = state->surface_format.format;
-  create_info.imageColorSpace = state->surface_format.colorSpace;
-  create_info.imageExtent = state->extent;
+  create_info.imageFormat = surface_format.format;
+  create_info.imageColorSpace = surface_format.colorSpace;
+  create_info.imageExtent = extent;
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  if (state->queue_family.type.graphics == state->queue_family.type.present) {
+  if (families.type.graphics == families.type.present) {
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   } else {
     create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    create_info.pQueueFamilyIndices = families.families;
     create_info.queueFamilyIndexCount =
-      SIZEOF_ARRAY(state->queue_family.families);
-
-    create_info.pQueueFamilyIndices = state->queue_family.families;
+      SIZEOF_ARRAY(families.families);
   }
 
-  create_info.preTransform = surface_caps.currentTransform;
+  create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // TODO: ok?
   create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
   create_info.clipped = 1;
 
-  vkCreateSwapchainKHR(state->device, &create_info, 0, &state->swapchain);
+  vkCreateSwapchainKHR(device, &create_info, 0, swapchain);
 }
 
 /**
- * @brief Creates an image view for the passed image TODO:
- * 
- * @param device Vulkan device
- * @param image Image to use
- * @param format Swapchain colour format
- * @param view Returns image view
- * @return VkResult Vulkan errors
- */
-void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
-  VkImageAspectFlags flags, VkImageView *view) {
-
-  VkImageViewCreateInfo create_info = {0};
-  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  create_info.image = image;
-  create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  create_info.format = format;
-  create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.subresourceRange.aspectMask = flags;
-  create_info.subresourceRange.levelCount = 1;
-  create_info.subresourceRange.layerCount = 1;
-
-  vkCreateImageView(device, &create_info, 0, view);
-}
-
-/**
- * @brief Create a Vulkan framebuffer
- * 
- * @param device Vulkan device
- * @param extent Dimensions of framebuffer
- * @param render_pass Render pass
- * @param image_view Image view to use
- * @param framebuffer Returns the framebuffer
- * @return VkResult 
- */
-void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
-  VkRenderPass render_pass, VkImageView colour_view, VkImageView depth_view,
-  VkFramebuffer *framebuffer) {
-
-    VkImageView view[] = {colour_view, depth_view};
-
-  VkFramebufferCreateInfo create_info = {0};
-  create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  create_info.renderPass = render_pass;
-  create_info.attachmentCount = SIZEOF_ARRAY(view);
-  create_info.pAttachments = view;
-  create_info.width = extent.width;
-  create_info.height = extent.height;
-  create_info.layers = 1;
-
-  vkCreateFramebuffer(device, &create_info, 0, framebuffer);
-}
-
-/**
- * @brief Creates views of framebuffers
+ * @brief Create a Vulkan render pass TODO:
  * 
  * @param state Vulkan state
  */
-void _vk_get_swapchain_images(struct vk_state *state) {
-
-  uint32_t image_count;
-  vkGetSwapchainImagesKHR(state->device, state->swapchain, &image_count, 0);
-
-  VkImage *images = malloc(image_count * sizeof(VkImage));
-
-  vkGetSwapchainImagesKHR(state->device, state->swapchain,
-    &image_count, images);
-
-  struct vk_image depth_image = vk_create_depth_buffer(state);
-
-  VkImageView depth_view;
-  _vk_get_image_view(state->device, depth_image.image, VK_FORMAT_D32_SFLOAT,
-      VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
-
-  for (uint32_t i = 0; i < image_count
-    && i < SLN_FRAMEBUFFER_COUNT; i++) {
-    _vk_get_image_view(state->device, images[i], state->surface_format.format,
-      VK_IMAGE_ASPECT_COLOR_BIT, &state->framebuffers[i].view);
-
-    _vk_create_framebuffer(state->device, state->extent,
-      state->render_pass,
-      state->framebuffers[i].view, depth_view,
-      &state->framebuffers[i].framebuffer);
-  }
-
-  free(images);
-}
-
-/**
- * @brief Create a Vulkan render pass
- * 
- * @param state Vulkan state
- */
-void _vk_create_render_pass(struct vk_state *state) {
-
+void _vk_create_render_pass(
+  VkDevice device,
+  VkSurfaceFormatKHR surface_format,
+  OUT VkRenderPass *render_pass
+) {
   VkAttachmentDescription attachment[2] = {0};
   // Colour
-  attachment[0].format = state->surface_format.format;
+  attachment[0].format = surface_format.format;
   attachment[0].samples = 1;
   attachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   attachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -452,22 +391,23 @@ void _vk_create_render_pass(struct vk_state *state) {
   create_info.dependencyCount = 1;
   create_info.pDependencies = &dependency;
 
-  vkCreateRenderPass(state->device, &create_info, 0, &state->render_pass);
+  vkCreateRenderPass(device, &create_info, 0, render_pass);
 }
 
 /**
- * @brief Create a Vulkan command pool
+ * @brief Create a Vulkan command pool TODO:
  * 
  * @param state Vulkan state
  */
-void _vk_create_command_pool(struct vk_state *state) {
+void _vk_create_command_pool(VkDevice device, union vk_queue_family families,
+  VkCommandPool *command_pool) {
 
   VkCommandPoolCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  create_info.queueFamilyIndex = state->queue_family.type.graphics;
+  create_info.queueFamilyIndex = families.type.graphics;
 
-  vkCreateCommandPool(state->device, &create_info, 0, &state->command_pool);
+  vkCreateCommandPool(device, &create_info, 0, command_pool);
 }
 
 /**
@@ -475,47 +415,163 @@ void _vk_create_command_pool(struct vk_state *state) {
  * 
  * @param state Vulkan state
  */
-void _vk_create_command_buffer(struct vk_state *state) {
+void _vk_create_command_buffer(VkDevice device, VkCommandPool command_pool,
+  VkCommandBuffer *command_buffer) {
 
   VkCommandBufferAllocateInfo allocate_info = {0};
   allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocate_info.commandPool = state->command_pool;
+  allocate_info.commandPool = command_pool;
   allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   allocate_info.commandBufferCount = 1;
 
-  vkAllocateCommandBuffers(state->device, &allocate_info,
-    &state->command_buffer);
+  vkAllocateCommandBuffers(device, &allocate_info,
+    command_buffer);
 }
 
 /**
- * @brief Create Vulkan semaphores
+ * @brief Creates an image view for the passed image TODO:
+ * 
+ * @param device Vulkan device
+ * @param image Image to use
+ * @param format Swapchain colour format
+ * @param view Returns image view
+ * @return VkResult Vulkan errors
+ */
+void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
+  VkImageAspectFlags flags, VkImageView *view) {
+
+  VkImageViewCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  create_info.image = image;
+  create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  create_info.format = format;
+  create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.subresourceRange.aspectMask = flags;
+  create_info.subresourceRange.levelCount = 1;
+  create_info.subresourceRange.layerCount = 1;
+
+  vkCreateImageView(device, &create_info, 0, view);
+}
+
+/**
+ * @brief Create a Vulkan framebuffer
+ * 
+ * @param device Vulkan device
+ * @param extent Dimensions of framebuffer
+ * @param render_pass Render pass
+ * @param image_view Image view to use
+ * @param framebuffer Returns the framebuffer
+ * @return VkResult 
+ */
+void _vk_create_framebuffer(
+  VkDevice device,
+  VkExtent2D extent,
+  VkRenderPass render_pass,
+  VkImageView colour_view,
+  VkImageView depth_view,
+  OUT VkFramebuffer *framebuffer
+) {
+  VkImageView view[] = {colour_view, depth_view};
+
+  VkFramebufferCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  create_info.renderPass = render_pass;
+  create_info.attachmentCount = SIZEOF_ARRAY(view);
+  create_info.pAttachments = view;
+  create_info.width = extent.width;
+  create_info.height = extent.height;
+  create_info.layers = 1;
+
+  vkCreateFramebuffer(device, &create_info, 0, framebuffer);
+}
+
+/**
+ * @brief TODO:
+ * 
+ * @param state 
+ * @return struct vk_image 
+ */
+struct vk_image _vk_create_depth_buffer(
+  VkDevice device,
+  VkPhysicalDevice physical_device
+) {
+  return vk_create_image(device, physical_device, VK_FORMAT_D32_SFLOAT, SLN_WINDOW_WIDTH,
+    SLN_WINDOW_HEIGHT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+}
+
+/**
+ * @brief Creates views of framebuffers
  * 
  * @param state Vulkan state
  */
-void _vk_create_semaphores(struct vk_state *state) {
+void _vk_get_swapchain_images(
+  VkDevice device,
+  VkPhysicalDevice physical_device,
+  VkSwapchainKHR swapchain,
+  VkSurfaceFormatKHR surface_format,
+  VkExtent2D extent,
+  VkRenderPass render_pass,
+  struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT]
+) {
+  uint32_t image_count;
+  vkGetSwapchainImagesKHR(device, swapchain, &image_count, 0);
+  VkImage *images = malloc(image_count * sizeof(VkImage));
+  vkGetSwapchainImagesKHR(device, swapchain, &image_count, images);
 
+  struct vk_image depth_image = _vk_create_depth_buffer(device,
+    physical_device);
+
+  VkImageView depth_view;
+  _vk_get_image_view(device, depth_image.image, VK_FORMAT_D32_SFLOAT,
+      VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
+
+  for (uint32_t i = 0; i < image_count
+    && i < SLN_FRAMEBUFFER_COUNT; i++) {
+    _vk_get_image_view(device, images[i], surface_format.format,
+      VK_IMAGE_ASPECT_COLOR_BIT, &framebuffers[i].view);
+
+    _vk_create_framebuffer(device, extent,
+      render_pass,
+      framebuffers[i].view, depth_view,
+      &framebuffers[i].framebuffer);
+  }
+
+  free(images);
+}
+
+/**
+ * @brief Create Vulkan semaphores TODO:
+ * 
+ * @param state Vulkan state
+ */
+void _vk_create_semaphore(
+  VkDevice device,
+  VkSemaphore *semaphore
+) {
   VkSemaphoreCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  vkCreateSemaphore(state->device, &create_info, 0,
-    &state->image_ready_semaphore);
-
-  vkCreateSemaphore(state->device, &create_info, 0,
-    &state->render_ready_semaphore);
+  vkCreateSemaphore(device, &create_info, 0, semaphore);
 }
 
 /**
- * @brief Create a Vulkan fence
+ * @brief Create a Vulkan fence TODO:
  * 
  * @param state Vulkan state
  */
-void _vk_create_fence(struct vk_state *state) {
-
+void _vk_create_fence(
+  VkDevice device,
+  VkFence *fence
+) {
   VkFenceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  vkCreateFence(state->device, &create_info, 0, &state->render_ready_fence);
+  vkCreateFence(device, &create_info, 0, fence);
 }
 
 /**
@@ -527,8 +583,9 @@ void _vk_create_fence(struct vk_state *state) {
  * @param format Swapchain colour format
  * @return struct vk_state A structure containing Vulkan details
  */
-struct vk_state vk_init(struct vk_surface surface) {
-
+struct vk_state vk_init(
+  struct vk_surface surface
+) {
   struct vk_state state = {0};
 
   _vk_create_instance(&state.instance);
@@ -547,13 +604,25 @@ struct vk_state vk_init(struct vk_surface surface) {
   _vk_select_suitable_surface_format(state.physical_device, state.surface,
     &state.surface_format);
 
-  _vk_create_swapchain(&state);
-  _vk_create_render_pass(&state);
-  _vk_create_command_pool(&state);
-  _vk_create_command_buffer(&state);
-  _vk_get_swapchain_images(&state);
-  _vk_create_semaphores(&state);
-  _vk_create_fence(&state);
+  _vk_calculate_extent(state.physical_device, state.surface, &state.extent);
+  _vk_create_swapchain(state.device, state.surface, state.surface_format,
+    state.extent, state.queue_family, &state.swapchain);
+
+  _vk_create_render_pass(state.device, state.surface_format,
+    &state.render_pass);
+
+  _vk_create_command_pool(state.device, state.queue_family,
+    &state.command_pool);
+
+  _vk_create_command_buffer(state.device, state.command_pool,
+    &state.command_buffer);
+
+  _vk_get_swapchain_images(state.device, state.physical_device, state.swapchain,
+    state.surface_format, state.extent, state.render_pass, state.framebuffers);
+
+  _vk_create_semaphore(state.device, &state.image_ready_semaphore);
+  _vk_create_semaphore(state.device, &state.render_ready_semaphore);
+  _vk_create_fence(state.device, &state.render_ready_fence);
 
   return state;
 }

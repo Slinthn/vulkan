@@ -43,7 +43,6 @@ static struct sln_resources resources;
  * 
  */
 void sln_load_shaders(void) {
-
   // Default shader
   struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
   struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
@@ -61,7 +60,6 @@ void sln_load_shaders(void) {
  * 
  */
 void sln_load_models(void) {
-
   resources.model = sln_load_sm(vulkan, "tower.sm");
   resources.model2 = sln_load_sm(vulkan, "cube.sm");
 }
@@ -82,8 +80,9 @@ void sln_init(struct vk_surface surface) {
  * @brief TODO:
  * 
  */
-void sln_draw_model(struct sln_model model) {
-
+void sln_draw_model(
+  struct sln_model model
+) {
   VkDeviceSize offsets[1] = {0};
   vkCmdBindVertexBuffers(vulkan.command_buffer, 0, 1,
     &model.vertex_buffer.buffer, offsets);
@@ -100,8 +99,9 @@ void sln_draw_model(struct sln_model model) {
  * 
  * @param app Game information
  */
-void sln_update(struct sln_app app) {
-
+void sln_update(
+  struct sln_app app
+) {
   vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1});
   vk_render_bind_shader(vulkan, resources.shader);
   vk_render_set_viewport(vulkan, app.width, app.height);

@@ -7,9 +7,11 @@
  * @param pipeline Returns the created pipeline layout
  * @return VkResult Vulkan errors
  */
-void _vk_create_pipeline_layout(VkDevice device,
-  VkDescriptorSetLayout *set_layout, VkPipelineLayout *pipeline) {
-
+void _vk_create_pipeline_layout(
+  VkDevice device,
+  VkDescriptorSetLayout *set_layout,
+  OUT VkPipelineLayout *pipeline
+) {
   // TODO: hardcoded
   VkDescriptorSetLayoutBinding binding = {0};
   binding.binding = 0;
@@ -38,8 +40,10 @@ void _vk_create_pipeline_layout(VkDevice device,
  * @param device 
  * @param pool 
  */
-void _vk_create_descriptor_pool(VkDevice device, VkDescriptorPool *pool) {
-
+void _vk_create_descriptor_pool(
+  VkDevice device,
+  OUT VkDescriptorPool *pool
+) {
   VkDescriptorPoolSize size = {0};
   size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   size.descriptorCount = 1;  // TODO: 2 for double-buffering?
@@ -61,9 +65,13 @@ void _vk_create_descriptor_pool(VkDevice device, VkDescriptorPool *pool) {
  * @param pool 
  * @param set 
  */
-void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
-  VkDescriptorSetLayout set_layout, VkBuffer buffer, VkDescriptorSet *set) {
-
+void _vk_allocate_descriptor_sets(
+  VkDevice device,
+  VkDescriptorPool pool,
+  VkDescriptorSetLayout set_layout,
+  VkBuffer buffer,
+  OUT VkDescriptorSet *set
+) {
   VkDescriptorSetAllocateInfo alloc_info = {0};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   alloc_info.descriptorPool = pool;
@@ -101,12 +109,16 @@ void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
  * @param pipeline Returns the created graphics pipeline
  * @return VkResult Vulkan errors
  */
-void _vk_create_graphics_pipeline(struct vk_state *state,
+void _vk_create_graphics_pipeline(
+  struct vk_state *state,
   VkPipelineShaderStageCreateInfo vertex_stage,
   VkPipelineShaderStageCreateInfo fragment_stage,
-  VkRenderPass render_pass, VkPipeline *pipeline,
-  VkPipelineLayout *pipeline_layout, VkDescriptorSet *descriptor_set, struct vk_uniform_buffer *uniform_buffer) {
-
+  VkRenderPass render_pass,
+  VkPipeline *pipeline,
+  VkPipelineLayout *pipeline_layout,
+  VkDescriptorSet *descriptor_set,
+  OUT struct vk_uniform_buffer *uniform_buffer
+) {
   *uniform_buffer = vk_create_uniform_buffer(state,
     sizeof(struct vk_uniform_buffer0));
 
@@ -236,11 +248,13 @@ void _vk_create_graphics_pipeline(struct vk_state *state,
  * @param code Shader bytecode
  * @param size Shader bytecode size in bytes
  * @param module Returns the created shader module
- * @return VkResult Vulkan errors
  */
-void _vk_create_shader_module(VkDevice device, void *code, uint64_t size,
-  VkShaderModule *module) {
-
+void _vk_create_shader_module(
+  VkDevice device,
+  void *code,
+  uint64_t size,
+  OUT VkShaderModule *module
+) {
   VkShaderModuleCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   create_info.codeSize = size;
@@ -259,9 +273,13 @@ void _vk_create_shader_module(VkDevice device, void *code, uint64_t size,
  * @param fragment_size Fragment shader size in bytes
  * @return struct vk_shader Created shader information
  */
-struct vk_shader vk_create_shader(struct vk_state *state, void *vertex_data,
-  uint64_t vertex_size, void *fragment_data, uint64_t fragment_size) {
-
+struct vk_shader vk_create_shader(
+  struct vk_state *state,
+  void *vertex_data,
+  uint64_t vertex_size,
+  void *fragment_data,
+  uint64_t fragment_size
+) {
   struct vk_shader shader = {0};
 
   VkPipelineShaderStageCreateInfo vertex_stage = {0};

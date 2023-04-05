@@ -22,9 +22,12 @@ struct sln_app {
  * @param lparam Second parameter
  * @return LRESULT Return code
  */
-LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam,
-  LPARAM lparam) {
-
+LRESULT win_message_proc(
+  HWND window,
+  UINT msg,
+  WPARAM wparam,
+  LPARAM lparam
+) {
   struct sln_app *state =
     (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
 
@@ -52,8 +55,15 @@ LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam,
   return DefWindowProcA(window, msg, wparam, lparam);
 }
 
-DWORD win_game_loop(void *param) {
-
+/**
+ * @brief TODO
+ * 
+ * @param param 
+ * @return DWORD 
+ */
+DWORD win_game_loop(
+  void *param
+) {
   struct sln_app *app = (struct sln_app *)param;
 
   uint64_t counter;
@@ -82,7 +92,7 @@ DWORD win_game_loop(void *param) {
   }
 }
 
-#pragma warning(disable:4100)
+
 /**
  * @brief Entrypoint for WIN64 builds
  * 
@@ -92,10 +102,14 @@ DWORD win_game_loop(void *param) {
  * @param show Show mode (in exe properties)
  * @return int Return code
  */
-int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, LPSTR cmd,
-  int show) {
+int APIENTRY WinMain(
+#pragma warning(disable:4100)
+  HINSTANCE hinstance,
+  HINSTANCE prev_hinstance,
+  LPSTR cmd,
+  int show
 #pragma warning(default:4100)
-
+) {
   struct sln_app app = {0};
   struct vk_surface surface = {0};
   surface.hinstance = hinstance;

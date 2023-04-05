@@ -1,7 +1,7 @@
 #ifdef SLN_VULKAN
 #ifdef SLN_DEBUG
 
-#pragma warning(disable:4100)
+
 /**
  * @brief Vulkan debug message handler. Called by Vulkan when a message is to
  *   be printed to the console
@@ -13,14 +13,17 @@
  * @return VKAPI_ATTR Return code
  */
 VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
+#pragma warning(disable:4100)
   VkDebugUtilsMessageSeverityFlagBitsEXT severity,
   VkDebugUtilsMessageTypeFlagsEXT type,
   const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
-  void *user_data) {
+  void *user_data
 #pragma warning(default:4100)
+) {
+  uint32_t check_bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
-  if (severity & (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)) {
+  if (severity & check_bits) {
     OutputDebugString(callback_data->pMessage);
     OutputDebugString("\n");
   }
@@ -35,8 +38,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
  * @param create_info Pointer in which populated structure will be returned
  */
 void _vk_populate_debug_struct(
-  VkDebugUtilsMessengerCreateInfoEXT *create_info) {
-
+  OUT VkDebugUtilsMessengerCreateInfoEXT *create_info
+) {
   *create_info = (VkDebugUtilsMessengerCreateInfoEXT){0};
   create_info->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   create_info->messageSeverity =
@@ -60,9 +63,10 @@ void _vk_populate_debug_struct(
  * @param instance Vulkan instance
  * @param debug_messenger Return handle for the created debug messenger
  */
-void _vk_create_debug_messenger(VkInstance instance,
-  VkDebugUtilsMessengerEXT *debug_messenger) {
-
+void _vk_create_debug_messenger(
+  VkInstance instance,
+  OUT VkDebugUtilsMessengerEXT *debug_messenger
+) {
   VkDebugUtilsMessengerCreateInfoEXT create_info;
   _vk_populate_debug_struct(&create_info);
 

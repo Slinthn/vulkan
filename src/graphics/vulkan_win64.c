@@ -18,8 +18,11 @@ struct vk_surface {
  * @param surface Pointer to Vulkan surface handle in which the resulting
  *   surface is returned
  */
-void vk_win64(VkInstance instance, struct vk_surface appsurface, VkSurfaceKHR *surface) {
-
+void vk_win64(
+  VkInstance instance,
+  struct vk_surface appsurface,
+  OUT VkSurfaceKHR *surface
+) {
   VkWin32SurfaceCreateInfoKHR create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
   create_info.hinstance = appsurface.hinstance;

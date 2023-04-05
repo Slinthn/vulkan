@@ -7,12 +7,13 @@ struct sm_header {
 /**
  * @brief Load a .sm file from disk and create buffers for Vulkan
  * 
- * @param filename Name of the file to read and parse
+ * @param filename Name of the file to read and parse TODO:
  */
-struct sln_model sln_load_sm(struct vk_state vulkan, char *filename) {
-
+struct sln_model sln_load_sm(
+  struct vk_state vulkan,
+  char *filename
+) {
   struct sln_file file = sln_read_file(filename, 1);
-
   struct sm_header *header = (struct sm_header *)file.data;
 
   struct sln_vertex *vertex_data =

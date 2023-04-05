@@ -6,8 +6,10 @@
  * @param state Vulkan state
  * @param clear_color Clear colour for the screen, in format RGBA
  */
-void vk_render_begin(struct vk_state *state, float clear_color[4]) {
-
+void vk_render_begin(
+  struct vk_state *state,
+  float clear_color[4]
+) {
   vkWaitForFences(state->device, 1, &state->render_ready_fence, 1, UINT64_MAX);
   vkResetFences(state->device, 1, &state->render_ready_fence);
 
@@ -53,8 +55,9 @@ void vk_render_begin(struct vk_state *state, float clear_color[4]) {
  * @param graphics_queue Graphics queue family
  * @param present_queue 
  */
-void vk_render_end(struct vk_state state) {
-
+void vk_render_end(
+  struct vk_state state
+) {
   vkCmdEndRenderPass(state.command_buffer);
   vkEndCommandBuffer(state.command_buffer);
 
@@ -81,16 +84,32 @@ void vk_render_end(struct vk_state state) {
   vkQueuePresentKHR(state.queue.type.present, &present_info);
 }
 
-void vk_render_bind_shader(struct vk_state state,
-  struct vk_shader shader) {
-
+/**
+ * @brief TODO:
+ * 
+ * @param state 
+ * @param shader 
+ */
+void vk_render_bind_shader(
+  struct vk_state state,
+  struct vk_shader shader
+) {
   vkCmdBindPipeline(state.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
     shader.pipeline);
 }
 
-void vk_render_set_viewport(struct vk_state state,
-  uint32_t width, uint32_t height) {
-
+/**
+ * @brief TODO:
+ * 
+ * @param state 
+ * @param width 
+ * @param height 
+ */
+void vk_render_set_viewport(
+  struct vk_state state,
+  uint32_t width,
+  uint32_t height
+) {
   VkViewport viewport = {0};
   viewport.x = 0;
   viewport.y = 0;
