@@ -10,11 +10,12 @@
 
 /**
  * @brief Creates a Vulkan 1.0 instance, with surface support and debug
- *   validation, if applicable
- * 
- * @param state Vulkan state
+ *   validation, if debug is defined
+ *
+ * @param instance Pointer to vulkan instance handle in which the resulting
+ *   instance is returned
  */
-void _vk_create_instance(struct vk_state *state) {
+void _vk_create_instance(VkInstance *instance) {
 
   VkApplicationInfo app_info = {0};
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -49,101 +50,128 @@ void _vk_create_instance(struct vk_state *state) {
   create_info.ppEnabledExtensionNames = extensions;
 
 #ifdef SLN_DEBUG
-  VkDebugUtilsMessengerCreateInfoEXT messenger_create_info =
-    _vk_populate_debug_struct();
+  VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
+  _vk_populate_debug_struct(&messenger_create_info);
 
   create_info.pNext = &messenger_create_info;
-#endif
+#endif  // SLN_DEBUG
 
-  vkCreateInstance(&create_info, 0, &state->instance);
+  vkCreateInstance(&create_info, 0, instance);
 }
 
 /**
  * @brief Enumerates all graphics cards and selects a suitable physical device
  *   for the purposes of the application
  * 
- * @param state Vulkan state
+ * @param instance Vulkan instance
+ * @param physical_device Pointer to a physical device handle in which the
+ *   resulting physical device is returned 
  */
-void _vk_select_suitable_physical_device(struct vk_state *state) {
+void _vk_select_suitable_physical_device(VkInstance instance,
+  VkPhysicalDevice *physical_device) {
 
   // TODO: VkPhysicalDeviceLimits?
+  // TODO: Depth buffer capabilities?
 
   uint32_t device_count = 0;
-  vkEnumeratePhysicalDevices(state->instance, &device_count, 0);
-
+  vkEnumeratePhysicalDevices(instance, &device_count, 0);
   VkPhysicalDevice *devices = malloc(device_count * sizeof(VkPhysicalDevice));
+  vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
-  vkEnumeratePhysicalDevices(state->instance, &device_count, devices);
-
-  // Checks for suitability
   for (uint32_t i = 0; i < device_count; i++) {
-    VkPhysicalDevice physical_device = devices[i];
+    VkPhysicalDevice device_check = devices[i];
 
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(physical_device, &properties);
+    vkGetPhysicalDeviceProperties(device_check, &properties);
 
+    // Prefer dedicated GPUs
     if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
       continue;
 
-    state->physical_device = physical_device;
+    *physical_device = device_check;
     goto search_complete;
   }
 
   // Fallback if nothing else works
-  state->physical_device = devices[0];
+  *physical_device = devices[0];
 
 search_complete:
   free(devices);
 }
 
 /**
- * @brief Get indices of suitable queue families for the physical device
+ * @brief Initialise the Vulkan suface. This function invokes the corresponding
+ *   surface handler for the Operating System
  * 
- * @param state Vulkan state
+ * @param instance Vulkan instance
+ * @param appsurface App surface from OS specific code
+ * @param surface Pointer to Vulkan surface handle in which the resulting handle
+ *   is returned
  */
-void _vk_select_suitable_queue_families(struct vk_state *state) {
+void _vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
+  VkSurfaceKHR *surface) {
+
+#ifdef SLN_WIN64
+  vk_win64(instance, appsurface, surface);
+#else
+  #error "No Vulkan surface has been selected."
+#endif
+}
+
+/**
+ * @brief Find a suitable graphics and present queue family
+ * 
+ * @param physical_device Vulkan physical device to enumerate
+ * @param surface Vulkan surface to check
+ * @param queue_family Pointer to queue family in which resulting queue family
+ *   information is returned
+ */
+void _vk_select_suitable_queue_families(VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface, union vk_queue_family *queue_family) {
 
   uint32_t family_count;
-  vkGetPhysicalDeviceQueueFamilyProperties(state->physical_device,
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
     &family_count, 0);
 
   VkQueueFamilyProperties *properties =
     malloc(family_count * sizeof(VkQueueFamilyProperties));
   
-  vkGetPhysicalDeviceQueueFamilyProperties(state->physical_device,
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
     &family_count, properties);
 
   for (uint32_t i = 0; i < family_count; i++) {
     if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-      state->queue_family.type.graphics = i;
+      queue_family->type.graphics = i;
 
-    VkBool32 present_support = 0;
-    vkGetPhysicalDeviceSurfaceSupportKHR(state->physical_device, i,
-      state->surface, &present_support);
+    VkBool32 present_support;
+    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i,
+      surface, &present_support);
 
     if (present_support)
-      state->queue_family.type.present = i;
+      queue_family->type.present = i;
   }
 
   free(properties);
 }
 
 /**
- * @brief Create a Vulkan device and also a queue for each queue family
- * 
- * @param state Vulkan state
+ * @brief Create a Vulkan device
+ *
+ * @param physical_device Vulkan physical device
+ * @param qf Queue families to use when creating device
+ * @param device Returns the handle to the created device
  */
-void _vk_create_device_and_queue(struct vk_state *state) {
+void _vk_create_device(VkPhysicalDevice physical_device,
+  union vk_queue_family qf, VkDevice *device) {
 
   float queue_priority = 1;
 
   VkDeviceQueueCreateInfo *queue_info =
-    calloc(1, SIZEOF_ARRAY(state->queue_family.families)
-      * sizeof(VkDeviceQueueCreateInfo));
+    calloc(1, SIZEOF_ARRAY(qf.families) * sizeof(VkDeviceQueueCreateInfo));
 
-  for (uint32_t i = 0; i < SIZEOF_ARRAY(state->queue_family.families); i++) {
+  for (uint32_t i = 0; i < SIZEOF_ARRAY(qf.families); i++) {
     queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_info[i].queueFamilyIndex = state->queue_family.families[i];
+    queue_info[i].queueFamilyIndex = qf.families[i];
     queue_info[i].queueCount = 1;
     queue_info[i].pQueuePriorities = &queue_priority;
   }
@@ -154,55 +182,71 @@ void _vk_create_device_and_queue(struct vk_state *state) {
 
   VkDeviceCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  create_info.queueCreateInfoCount = SIZEOF_ARRAY(state->queue_family.families);
+  create_info.queueCreateInfoCount = SIZEOF_ARRAY(qf.families);
   create_info.pQueueCreateInfos = queue_info;
   create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
   create_info.ppEnabledExtensionNames = extensions;
   create_info.pEnabledFeatures = 0;
 
-  vkCreateDevice(state->physical_device, &create_info, 0, &state->device);
+  vkCreateDevice(physical_device, &create_info, 0, device);
 
   free(queue_info);
 
-  vkGetDeviceQueue(state->device, state->queue_family.type.graphics, 0,
-    &state->graphics_queue);
-
-  vkGetDeviceQueue(state->device, state->queue_family.type.present, 0,
-    &state->present_queue);
 }
 
 /**
- * @brief Select a suitable surface format
+ * @brief Get the command queues from a device using given queue families
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param family Queue families to query
+ * @param queues Union of command queues in which queues will be returned in
  */
-void _vk_select_suitable_surface_format(struct vk_state *state) {
+void _vk_get_queues(VkDevice device, union vk_queue_family family,
+  union vk_queue *queues) {
+
+  for (uint32_t i = 0; i < VK_QUEUE_COUNT; i++)
+    vkGetDeviceQueue(device, family.families[i],
+      0, &queues->queues[i]);
+}
+
+/**
+ * @brief Select a suitable surface format to render on
+ * 
+ * @param physical_device Vulkan physical device
+ * @param surface Vulkan surface
+ * @param surface_format Handle to the surface format in which the chosen
+ *   format is returned 
+ */
+void _vk_select_suitable_surface_format(VkPhysicalDevice physical_device,
+  VkSurfaceKHR surface, VkSurfaceFormatKHR *surface_format) {
 
   uint32_t surface_format_count; 
-  vkGetPhysicalDeviceSurfaceFormatsKHR(state->physical_device, state->surface,
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
     &surface_format_count, 0);
 
   VkSurfaceFormatKHR *surface_formats =
     malloc(surface_format_count * sizeof(VkSurfaceFormatKHR));
 
-  vkGetPhysicalDeviceSurfaceFormatsKHR(state->physical_device, state->surface,
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
     &surface_format_count, surface_formats);
 
   for (uint32_t i = 0; i < surface_format_count; i++) {
-    VkSurfaceFormatKHR surface_format = surface_formats[i];
-    if (surface_format.format == VK_FORMAT_R8G8B8A8_SRGB
-      && surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-      state->surface_format = surface_format;
+    VkSurfaceFormatKHR format_check = surface_formats[i];
+    if (format_check.format == VK_FORMAT_R8G8B8A8_SRGB
+      && format_check.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+      *surface_format = format_check;
       goto complete;
       }
   }
 
-  // Fallback surface
-  state->surface_format = surface_formats[0];
+  // Fallback surface format
+  *surface_format = surface_formats[0];
 
 complete:
   free(surface_formats);
 }
+
+// TODO: Create one for depth stencil bullshit
 
 /**
  * @brief Create a swapchain
@@ -389,10 +433,15 @@ void _vk_create_render_pass(struct vk_state *state) {
   VkSubpassDependency dependency = {0};
   dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
   dependency.dstSubpass = 0;
-  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
   dependency.srcAccessMask = 0;
-  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+    | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
   VkRenderPassCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -469,16 +518,6 @@ void _vk_create_fence(struct vk_state *state) {
   vkCreateFence(state->device, &create_info, 0, &state->render_ready_fence);
 }
 
-void _vk_initialise_surface(struct vk_state *state,
-  struct vk_surface appsurface) {
-
-#ifdef SLN_WIN64
-  vk_win64(state, appsurface);
-#else
-  #error "No Vulkan surface has been selected."
-#endif
-}
-
 /**
  * @brief Initialises Vulkan. Should be called after program starts
  * 
@@ -492,17 +531,22 @@ struct vk_state vk_init(struct vk_surface surface) {
 
   struct vk_state state = {0};
 
-  _vk_create_instance(&state);
+  _vk_create_instance(&state.instance);
 
 #ifdef SLN_DEBUG
-  _vk_create_debug_messenger(&state);
+  _vk_create_debug_messenger(state.instance, &state.debug_messenger);
 #endif
 
-  _vk_select_suitable_physical_device(&state);
-  _vk_initialise_surface(&state, surface);
-  _vk_select_suitable_surface_format(&state);
-  _vk_select_suitable_queue_families(&state);
-  _vk_create_device_and_queue(&state);
+  _vk_select_suitable_physical_device(state.instance, &state.physical_device);
+  _vk_initialise_surface(state.instance, surface, &state.surface);
+  _vk_select_suitable_queue_families(state.physical_device, state.surface,
+    &state.queue_family);
+
+  _vk_create_device(state.physical_device, state.queue_family, &state.device);
+  _vk_get_queues(state.device, state.queue_family, &state.queue);
+  _vk_select_suitable_surface_format(state.physical_device, state.surface,
+    &state.surface_format);
+
   _vk_create_swapchain(&state);
   _vk_create_render_pass(&state);
   _vk_create_command_pool(&state);

@@ -21,9 +21,7 @@ struct sln_model {
 
 struct sln_resources {
   struct vk_shader shader;
-  struct sln_model model;
-  struct vk_buffer vertex_buffer;
-  struct vk_index_buffer index_buffer;
+  struct sln_model model, model2;
 };
 
 #pragma pack(push, 1)
@@ -64,7 +62,8 @@ void sln_load_shaders(void) {
  */
 void sln_load_models(void) {
 
-  resources.model = sln_load_sm(vulkan, "cube.sm");
+  resources.model = sln_load_sm(vulkan, "tower.sm");
+  resources.model2 = sln_load_sm(vulkan, "cube.sm");
 }
 
 /**
@@ -80,6 +79,23 @@ void sln_init(struct vk_surface surface) {
 }
 
 /**
+ * @brief TODO:
+ * 
+ */
+void sln_draw_model(struct sln_model model) {
+
+  VkDeviceSize offsets[1] = {0};
+  vkCmdBindVertexBuffers(vulkan.command_buffer, 0, 1,
+    &model.vertex_buffer.buffer, offsets);
+
+  vkCmdBindIndexBuffer(vulkan.command_buffer, model.index_buffer.buffer.buffer,
+    0, VK_INDEX_TYPE_UINT32);
+
+  vkCmdDrawIndexed(vulkan.command_buffer, model.index_buffer.index_count, 1,
+    0, 0, 0);
+}
+
+/**
  * @brief Call once per frame to update the game and render
  * 
  * @param app Game information
@@ -90,24 +106,23 @@ void sln_update(struct sln_app app) {
   vk_render_bind_shader(vulkan, resources.shader);
   vk_render_set_viewport(vulkan, app.width, app.height);
 
-  VkDeviceSize offsets[1] = {0};
+  static struct transform model = {0};
+  model.position.c.y = sinf(model.rotation.c.y * 3) / 3.0f;
+  model.rotation.c.y += 0.1f;
+  model.rotation.c.z += 0.05f;
+  model.rotation.c.x += 0.02f;
+  model.scale = (union vector3){1, 1, 1};
 
-  vkCmdBindVertexBuffers(vulkan.command_buffer, 0, 1,
-    &resources.model.vertex_buffer.buffer, offsets);
-
-  vkCmdBindIndexBuffer(vulkan.command_buffer,
-    resources.model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-  struct transform transform = {0};
-  transform.position = (union vector3){0, 0, -5};
-  transform.scale = (union vector3){1, 1, 1};
+  struct transform view = {0};
+  view.position = (union vector3){0, 0, -4};
+  view.scale = (union vector3){1, 1, 1};
 
   struct vk_uniform_buffer0 buf = {0};
   mat4_perspective(&buf.projection, SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH,
     DEG_TO_RAD(90), 0.1f, 10.0f);
 
-  mat4_transform(&buf.view, transform);
-  mat4_identity(&buf.model);
+  mat4_transform(&buf.view, view);
+  mat4_transform(&buf.model, model);
 
   vk_update_uniform_buffer(resources.shader.uniform_buffer, &buf);
 
@@ -115,8 +130,8 @@ void sln_update(struct sln_app app) {
     VK_PIPELINE_BIND_POINT_GRAPHICS, resources.shader.pipeline_layout, 0,
     1, &resources.shader.descriptor_set, 0, 0);  // TODO: double-buffering
 
-  vkCmdDrawIndexed(vulkan.command_buffer,
-    resources.model.index_buffer.index_count, 1, 0, 0, 0);
+  sln_draw_model(resources.model);
+  sln_draw_model(resources.model2);
 
   vk_render_end(vulkan);
 }

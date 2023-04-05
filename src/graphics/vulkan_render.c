@@ -67,7 +67,7 @@ void vk_render_end(struct vk_state state) {
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = &state.render_ready_semaphore;
 
-  vkQueueSubmit(state.graphics_queue, 1,
+  vkQueueSubmit(state.queue.type.graphics, 1,
     &submit_info, state.render_ready_fence);
 
   VkPresentInfoKHR present_info = {0};
@@ -78,7 +78,7 @@ void vk_render_end(struct vk_state state) {
   present_info.pSwapchains = &state.swapchain;
   present_info.pImageIndices = &state.current_image_index;
 
-  vkQueuePresentKHR(state.present_queue, &present_info);
+  vkQueuePresentKHR(state.queue.type.present, &present_info);
 }
 
 void vk_render_bind_shader(struct vk_state state,

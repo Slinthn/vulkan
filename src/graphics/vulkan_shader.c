@@ -170,8 +170,8 @@ void _vk_create_graphics_pipeline(struct vk_state *state,
   rasterisation.rasterizerDiscardEnable = 0;
   rasterisation.polygonMode = VK_POLYGON_MODE_FILL;
   rasterisation.lineWidth = 1;
-  rasterisation.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterisation.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterisation.cullMode = VK_CULL_MODE_NONE; // TODO:
+  rasterisation.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterisation.depthBiasEnable = 0;
 
   VkPipelineMultisampleStateCreateInfo multisample = {0};

@@ -10,6 +10,7 @@ cls
 pushd ..\bin
 
 py ../scripts/ply.py ../res/cube.ply cube.sm
+py ../scripts/ply.py ../res/tower.ply tower.sm
 
 rem glslangValidator -e main -gVS -V -o shader-v.spv ..\src\graphics\glsl\shader.vert
 rem glslangValidator -e main -gVS -V -o shader-f.spv ..\src\graphics\glsl\shader.frag

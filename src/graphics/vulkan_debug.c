@@ -32,45 +32,46 @@ VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
  * @brief Utility function to create and populate a
  *   VkDebugUtilsMessengerCreateInfoEXT structure
  * 
- * @return VkDebugUtilsMessengerCreateInfoEXT Populated structure
+ * @param create_info Pointer in which populated structure will be returned
  */
-VkDebugUtilsMessengerCreateInfoEXT _vk_populate_debug_struct(void) {
+void _vk_populate_debug_struct(
+  VkDebugUtilsMessengerCreateInfoEXT *create_info) {
 
-  VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
-  create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  create_info.messageSeverity =
+  *create_info = (VkDebugUtilsMessengerCreateInfoEXT){0};
+  create_info->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  create_info->messageSeverity =
     VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 
-  create_info.messageType =
+  create_info->messageType =
     VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
     | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
 
-  create_info.pfnUserCallback = _vk_debug_callback;
-
-  return create_info;
+  create_info->pfnUserCallback = _vk_debug_callback;
 }
 
 /**
  * @brief Initialise the debug messaging function of Vulkan
  * 
- * @param state Vulkan state
+ * @param instance Vulkan instance
+ * @param debug_messenger Return handle for the created debug messenger
  */
-void _vk_create_debug_messenger(struct vk_state *state) {
+void _vk_create_debug_messenger(VkInstance instance,
+  VkDebugUtilsMessengerEXT *debug_messenger) {
 
-  VkDebugUtilsMessengerCreateInfoEXT create_info = _vk_populate_debug_struct();
+  VkDebugUtilsMessengerCreateInfoEXT create_info;
+  _vk_populate_debug_struct(&create_info);
 
-  // Extension function not loaded automatically
   PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
     (PFN_vkCreateDebugUtilsMessengerEXT)(void *)vkGetInstanceProcAddr(
-    state->instance, "vkCreateDebugUtilsMessengerEXT");
+    instance, "vkCreateDebugUtilsMessengerEXT");
 
-  vkCreateDebugUtilsMessengerEXT(state->instance, &create_info, 0,
-    &state->debug_messenger);
+  vkCreateDebugUtilsMessengerEXT(instance, &create_info, 0,
+    debug_messenger);
 }
 
 #endif  // SLN_DEBUG

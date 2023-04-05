@@ -1,9 +1,17 @@
+#define VK_QUEUE_COUNT 2
+
 union vk_queue_family {
   struct {
-    uint32_t graphics;
-    uint32_t present;
+    uint32_t graphics, present;
   } type;
-  uint32_t families[2];
+  uint32_t families[VK_QUEUE_COUNT];
+};
+
+union vk_queue {
+  struct {
+    VkQueue graphics, present;
+  } type;
+  VkQueue queues[VK_QUEUE_COUNT];
 };
 
 struct vk_framebuffer {
@@ -18,12 +26,12 @@ struct vk_state {
   VkSurfaceKHR surface;
   VkSurfaceFormatKHR surface_format;
   union vk_queue_family queue_family;
+  union vk_queue queue;
   VkSemaphore image_ready_semaphore, render_ready_semaphore;
   VkFence render_ready_fence;
   VkExtent2D extent;
   VkCommandPool command_pool;
   VkCommandBuffer command_buffer;
-  VkQueue graphics_queue, present_queue;
   VkSwapchainKHR swapchain;
   VkRenderPass render_pass;
   struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT];

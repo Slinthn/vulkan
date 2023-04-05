@@ -6,11 +6,6 @@
 #include <stdio.h>
 #pragma warning(pop)
 
-struct vk_surface {
-  HINSTANCE hinstance;
-  HWND hwnd;
-};
-
 struct sln_app {
   uint32_t width;
   uint32_t height;

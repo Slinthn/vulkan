@@ -30,7 +30,7 @@ for i, line in enumerate(lines):
 
 outputfile.write(array("b", [0x53, 0x4D, 0, 0]))
 
-outputfile.write(array("i", [vertexcount, facecount]))
+outputfile.write(array("i", [vertexcount, facecount * 3]))
 
 lines = lines[i:]
 for i, line in enumerate(lines):
@@ -44,6 +44,8 @@ for i, line in enumerate(lines):
 
 lines = lines[(i):]
 for i, line in enumerate(lines):
+  if i == facecount:
+    break
   if not line.startswith("3"):
     print("ERROR: Can only parse triangles, other shape detected in faces section")
     exit()
