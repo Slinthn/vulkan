@@ -3,8 +3,8 @@
 #include "vulkan.h"
 #include "vulkan_win64.c"
 #include "vulkan_render.c"
-#include "vulkan_shader.c"
 #include "vulkan_buffer.c"
+#include "vulkan_shader.c"
 #include "vulkan_debug.c"
 
 /**
@@ -351,21 +351,29 @@ void _vk_create_render_pass(struct vk_state *state) {
   attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-  VkAttachmentReference attachment_reference = {0};
-  attachment_reference.attachment = 0;
-  attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  VkAttachmentReference colour_reference = {0};
+  colour_reference.attachment = 0;
+  colour_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkSubpassDescription subpass = {0};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &attachment_reference;
+/*
+  VkAttachmentReference depth_reference = {0};
+  depth_reference.attachment = 0;  // TODO: 1 or 0?
+  depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+*/
+  VkSubpassDescription subpass[2] = {0};  // TODO: check if this is good
+  subpass[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass[0].colorAttachmentCount = 1;
+  subpass[0].pColorAttachments = &colour_reference;
+  //subpass[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  //subpass[1].colorAttachmentCount = 0;
+  //subpass[1].pDepthStencilAttachment = &depth_reference;
 
   VkRenderPassCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   create_info.attachmentCount = 1;
   create_info.pAttachments = &attachment;
-  create_info.subpassCount = 1;
-  create_info.pSubpasses = &subpass;
+  create_info.subpassCount = 1;  // TODO: 
+  create_info.pSubpasses = subpass;
 
   vkCreateRenderPass(state->device, &create_info, 0, &state->render_pass);
 }
@@ -441,6 +449,16 @@ void _vk_initialise_surface(struct vk_state *state,
 #else
   #error "No Vulkan surface has been selected."
 #endif
+}
+
+void vk_create_depth_buffer(void) {
+
+  // TODO:
+  // vkGetPhysicalDeviceFormatProperties
+  // Update Render Pass function
+  // Get Framebuffer
+  // Clear values
+  // VkPipelineDepthStencilStateCreateInfo and VkPipeline
 }
 
 /**

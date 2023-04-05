@@ -39,7 +39,7 @@ struct vk_buffer vk_create_buffer(struct vk_state *state, uint64_t bytes,
   create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   create_info.size = bytes;
   create_info.usage = usage;
-  create_info.sharingMode = VK_SHARING_MODE_CONCURRENT;
+  create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // TODO: concurrent?
   create_info.queueFamilyIndexCount =
     SIZEOF_ARRAY(state->queue_family.families);
 
@@ -121,6 +121,41 @@ struct vk_index_buffer vk_create_index_buffer(struct vk_state *state,
   buffer.index_count = index_count;
 
   return buffer;
+}
+
+/**
+ * @brief Create a uniform buffer
+ * TODO:
+ * @return struct vk_uniform_buffer The created uniform buffer information
+ */
+struct vk_uniform_buffer vk_create_uniform_buffer(struct vk_state *state,
+  uint32_t data_size) {  // TODO: default data?
+
+  // TODO: vkCreateDescriptorSetLayout, then vk_create_buffer
+  struct vk_uniform_buffer buffer = {0};
+
+  // TODO: do i need VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+  buffer.buffer = vk_create_buffer(state, data_size,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+    | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  vkMapMemory(state->device, buffer.buffer.memory, 0,
+    VK_WHOLE_SIZE, 0, &buffer.data_ptr);
+
+  buffer.data_size = data_size;
+
+  return buffer;
+}
+
+/**
+ * @brief TODO:
+ * 
+ * @param ub 
+ * @param data 
+ */
+void vk_update_uniform_buffer(struct vk_uniform_buffer ub, void *data) {
+
+  memcpy(ub.data_ptr, data, ub.data_size);
 }
 
 #endif  // SLN_VULKAN

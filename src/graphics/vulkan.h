@@ -6,10 +6,6 @@ union vk_queue_family {
   uint32_t families[2];
 };
 
-struct vk_shader {
-  VkPipeline pipeline;
-};
-
 struct vk_framebuffer {
   VkImageView view;
   VkFramebuffer framebuffer;
@@ -49,3 +45,23 @@ struct vk_index_buffer {
   uint32_t index_count;
   uint32_t unused;
 };
+
+struct vk_uniform_buffer {
+  struct vk_buffer buffer;
+  void *data_ptr;
+  uint32_t data_size;
+  uint32_t unused;
+};
+
+struct vk_shader {
+  VkPipeline pipeline;
+  VkPipelineLayout pipeline_layout;
+  VkDescriptorSet descriptor_set;
+  struct vk_uniform_buffer uniform_buffer;
+};
+
+#pragma pack(push, 1)
+struct vk_uniform_buffer0 {
+  union matrix4 projection, view, model;
+};
+#pragma pack(pop)

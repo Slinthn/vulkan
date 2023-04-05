@@ -9,6 +9,7 @@
 #pragma warning(pop)
 #endif  // SLN_VULKAN
 
+#include "math/math.h"
 #include "macros.c"
 #include "graphics/vulkan.c"
 #include "file.c"
@@ -97,8 +98,25 @@ void sln_update(struct sln_app app) {
   vkCmdBindIndexBuffer(vulkan.command_buffer,
     resources.model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-  vkCmdDrawIndexed(vulkan.command_buffer, resources.model.index_buffer.index_count,
-    1, 0, 0, 0);
+  struct transform transform = {0};
+  transform.position = (union vector3){0, 0, -5};
+  transform.scale = (union vector3){1, 1, 1};
+
+  struct vk_uniform_buffer0 buf = {0};
+  mat4_perspective(&buf.projection, SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH,
+    DEG_TO_RAD(90), 0.1f, 10.0f);
+
+  mat4_transform(&buf.view, transform);
+  mat4_identity(&buf.model);
+
+  vk_update_uniform_buffer(resources.shader.uniform_buffer, &buf);
+
+  vkCmdBindDescriptorSets(vulkan.command_buffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS, resources.shader.pipeline_layout, 0,
+    1, &resources.shader.descriptor_set, 0, 0);  // TODO: double-buffering
+
+  vkCmdDrawIndexed(vulkan.command_buffer,
+    resources.model.index_buffer.index_count, 1, 0, 0, 0);
 
   vk_render_end(vulkan);
 }
