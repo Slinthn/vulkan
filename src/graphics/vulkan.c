@@ -565,9 +565,9 @@ struct vk_state vk_init(struct vk_surface surface)
     struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
     struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
-    state.shader = vk_create_shader(&state, vertex_file.data,
-        vertex_file.allocated_size, fragment_file.data,
-        fragment_file.allocated_size);
+    state.shader = vk_create_shader(state.device, state.physical_device,
+        state.render_pass, vertex_file.data, vertex_file.allocated_size,
+        fragment_file.data, fragment_file.allocated_size);
         
     sln_close_file(vertex_file);
     sln_close_file(fragment_file);

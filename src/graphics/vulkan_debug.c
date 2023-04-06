@@ -1,6 +1,6 @@
 /**
  * @brief Vulkan debug message handler. Called by Vulkan when a message is to
- *     be printed to the console
+ *     be printed to the user
  * 
  * @param severity Severity of the message
  * @param type Type of message
@@ -14,6 +14,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
         const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
         void *user_data)
 {
+    // Suppress warnings
+    (void)type;
+    (void)user_data;
+
     uint32_t check_bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
@@ -26,8 +30,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 }
 
 /**
- * @brief Utility function to create and populate a
- *     VkDebugUtilsMessengerCreateInfoEXT structure
+ * @brief Populate a VkDebugUtilsMessengerCreateInfoEXT structure
  * 
  * @param create_info Pointer in which populated structure will be returned
  */

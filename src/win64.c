@@ -1,14 +1,20 @@
 #pragma warning(push, 0)
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
+#include <hidusage.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #pragma warning(pop)
 
+#include "macros.c"
+#include "math/math.h"
+#include "rawinput/rawinput.h"
+
 struct sln_app {
     uint32_t width;
     uint32_t height;
+    struct user_controls controls;
 };
 
 #include "game.c"
@@ -45,6 +51,10 @@ LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_SIZE: {
         state->width = LOWORD(lparam);
         state->height = HIWORD(lparam);
+    } break;
+
+    case WM_INPUT: {
+        rawinput_parse(&state->controls, (HRAWINPUT)lparam);
     } break;
     }
 
@@ -100,6 +110,11 @@ DWORD win_game_loop(void *param)
 int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
         LPSTR cmd, int show)
 {
+    // Suppress warnings
+    (void)prev_hinstance;
+    (void)cmd;
+    (void)show;
+
     struct sln_app app = {0};
     struct vk_surface surface = {0};
     surface.hinstance = hinstance;
@@ -116,6 +131,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
             WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
             SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
 
+    rawinput_init(surface.hwnd);
     sln_init(surface);
 
     CreateThread(0, 0, win_game_loop, &app, 0, 0);

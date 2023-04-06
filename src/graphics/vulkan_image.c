@@ -1,7 +1,14 @@
 /**
- * @brief TODO:
+ * @brief Create a 2D image
  * 
- * @param device 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @param format Format of the pixels on the image
+ * @param width Width of the image
+ * @param height Height of the image
+ * @param usage Usage flags, how the image will be used
+ * @param flags Memory flags in order to find a suitable memory property
+ * @return Created image information
  */
 struct vk_image vk_create_image(VkDevice device,
         VkPhysicalDevice physical_device, VkFormat format, uint32_t width,

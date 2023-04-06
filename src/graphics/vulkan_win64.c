@@ -23,8 +23,5 @@ void vk_win64(VkInstance instance, struct vk_surface appsurface,
     create_info.hinstance = appsurface.hinstance;
     create_info.hwnd = appsurface.hwnd;
 
-    PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
-            (PFN_vkCreateWin32SurfaceKHR)(void *)vkGetInstanceProcAddr(instance,
-            "vkCreateWin32SurfaceKHR");
     vkCreateWin32SurfaceKHR(instance, &create_info, 0, surface);
 }

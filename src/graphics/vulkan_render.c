@@ -1,9 +1,9 @@
 /**
- * @brief TODO:
+ * @brief Set the size of the viewport (and scissor, which is set to the same)
  * 
- * @param state 
- * @param width 
- * @param height 
+ * @param command_buffer Vulkan command buffer
+ * @param width Width of the viewport
+ * @param height Height of the viewport
  */
 void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
         uint32_t height)
@@ -26,10 +26,14 @@ void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
 }
 
 /**
- * @brief Begin the render pass TODO:
+ * @brief Begin the render pass. Should be called before any other render
+ *     operations
  * 
  * @param state Vulkan state
- * @param clear_color Clear colour for the screen, in format RGBA
+ * @param clear_color Clear colour for the screen, in order R, G, B, A
+ * @param buffer0 Uniform buffer 0, to be uploaded to the GPU prior to rendering
+ * @param viewport_width Viewport width
+ * @param viewport_height Viewport height
  */
 void vk_render_begin(struct vk_state *state, float clear_color[4],
         struct vk_uniform_buffer0 *buffer0, uint32_t viewport_width,
@@ -85,12 +89,9 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
 }
 
 /**
- * @brief Call after rendering is complete. Finishes and presents frame
+ * @brief Completes render pass. Renders image to user
  * 
- * @param command_buffer Graphics command buffer
- * @param swapchain Swapchain
- * @param graphics_queue Graphics queue family
- * @param present_queue 
+ * @param state Vulkan state
  */
 void vk_render_end(struct vk_state state)
 {

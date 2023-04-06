@@ -9,7 +9,8 @@ struct sm_header {
  * 
  * @param filename Name of the file to read and parse TODO:
  */
-struct sln_model sln_load_sm(struct vk_state vulkan, char *filename)
+struct sln_model sln_load_sm(VkDevice device, VkPhysicalDevice physical_device,
+        char *filename)
 {
     struct sln_file file = sln_read_file(filename, 1);
     struct sm_header *header = (struct sm_header *)file.data;
@@ -23,11 +24,11 @@ struct sln_model sln_load_sm(struct vk_state vulkan, char *filename)
 
     struct sln_model model = {0};
 
-    model.vertex_buffer = vk_create_vertex_buffer(&vulkan, vertex_data,
-            sizeof(struct sln_vertex) * header->vertex_count);
+    model.vertex_buffer = vk_create_vertex_buffer(device, physical_device,
+            vertex_data, sizeof(struct sln_vertex) * header->vertex_count);
 
-    model.index_buffer = vk_create_index_buffer(&vulkan, index_data,
-            header->index_count);
+    model.index_buffer = vk_create_index_buffer(device, physical_device,
+            index_data, header->index_count);
 
     sln_close_file(file);
 
