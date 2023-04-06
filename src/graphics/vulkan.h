@@ -43,14 +43,31 @@ struct vk_shader {
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
     VkDescriptorSet descriptor_set;
-    struct vk_uniform_buffer uniform_buffer;
+    struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
 };
 
 #pragma pack(push, 1)
 struct vk_uniform_buffer0 {
-    union matrix4 projection, view, model;
+    union matrix4 projection, view;
 };
 #pragma pack(pop)
+
+#pragma pack(push, 1)
+struct vk_uniform_buffer1 {
+    union matrix4 model[100];
+};
+#pragma pack(pop)
+
+
+#pragma pack(push, 1)
+struct vk_push_constant0 {
+    uint32_t index;
+};
+#pragma pack(pop)
+
+struct vk_push_contant0_list {
+    struct vk_push_constant0 constants[100];
+};
 
 struct vk_image {
     VkImage image;

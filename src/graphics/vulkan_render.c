@@ -36,8 +36,8 @@ void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
  * @param viewport_height Viewport height
  */
 void vk_render_begin(struct vk_state *state, float clear_color[4],
-        struct vk_uniform_buffer0 *buffer0, uint32_t viewport_width,
-        uint32_t viewport_height)
+        struct vk_uniform_buffer0 *buffer0, struct vk_uniform_buffer1 *buffer1,
+        uint32_t viewport_width, uint32_t viewport_height)
 {
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1, UINT64_MAX);
     vkResetFences(state->device, 1, &state->render_ready_fence);
@@ -64,7 +64,7 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = state->render_pass;
     render_pass_info.framebuffer =
-        state->framebuffers[state->current_image_index].framebuffer;
+            state->framebuffers[state->current_image_index].framebuffer;
 
     render_pass_info.renderArea.offset.x = 0;
     render_pass_info.renderArea.offset.y = 0;
@@ -73,16 +73,17 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     render_pass_info.pClearValues = clear_value;
 
     vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
-        VK_SUBPASS_CONTENTS_INLINE);
+            VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        state->shader.pipeline);
+            state->shader.pipeline);
 
     vkCmdBindDescriptorSets(state->command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS, state->shader.pipeline_layout, 0,
-        1, &state->shader.descriptor_set, 0, 0);  // TODO: double-buffering
+            VK_PIPELINE_BIND_POINT_GRAPHICS, state->shader.pipeline_layout, 0,
+            1, &state->shader.descriptor_set, 0, 0);  // TODO: double-buffering
 
-    vk_update_uniform_buffer(state->shader.uniform_buffer, buffer0);
+    vk_update_uniform_buffer(state->shader.uniform_buffer0, buffer0);
+    vk_update_uniform_buffer(state->shader.uniform_buffer1, buffer1);
 
     vk_render_set_viewport(state->command_buffer, viewport_width,
             viewport_height);

@@ -9,8 +9,15 @@ layout(location = 0) out vec3 pos;
 layout(set = 0, binding = 0) uniform world_information {
     mat4 projection;
     mat4 view;
-    mat4 model;
 } world;
+
+layout(set = 0, binding = 1) uniform object_information {
+    mat4[100] model;
+} object;
+
+layout(push_constant) uniform object_index {
+    int index;
+} index;
 
 /**
  *
@@ -18,6 +25,6 @@ layout(set = 0, binding = 0) uniform world_information {
 void main(void)
 {
     gl_Position = world.projection * inverse(world.view)
-            * world.model * vec4(position, 1);
+            * object.model[index.index] * vec4(position, 1);
     pos = position;
 }

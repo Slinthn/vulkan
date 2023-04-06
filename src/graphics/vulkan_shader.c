@@ -11,24 +11,35 @@ void _vk_create_pipeline_layout(VkDevice device,
         OUT VkPipelineLayout *pipeline)
 {
     // Uniform buffer 0
-    VkDescriptorSetLayoutBinding binding = {0};
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    VkDescriptorSetLayoutBinding binding[2] = {0};
+    binding[0].binding = 0;
+    binding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding[0].descriptorCount = 1;
+    binding[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    binding[1].binding = 1;
+    binding[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding[1].descriptorCount = 1;
+    binding[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_create = {0};
     set_create.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    set_create.bindingCount = 1;
-    set_create.pBindings = &binding;
+    set_create.bindingCount = SIZEOF_ARRAY(binding);
+    set_create.pBindings = binding;
 
     vkCreateDescriptorSetLayout(device, &set_create, 0, set_layout);
+
+    VkPushConstantRange push_constant = {0};
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    push_constant.size = 4;
 
     // Pipeline creation
     VkPipelineLayoutCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     create_info.setLayoutCount = 1;
     create_info.pSetLayouts = set_layout;
+    create_info.pushConstantRangeCount = 1;
+    create_info.pPushConstantRanges = &push_constant;
 
     vkCreatePipelineLayout(device, &create_info, 0, pipeline);
 }
@@ -41,15 +52,17 @@ void _vk_create_pipeline_layout(VkDevice device,
  */
 void _vk_create_descriptor_pool(VkDevice device, OUT VkDescriptorPool *pool)
 {
-    VkDescriptorPoolSize size = {0};
-    size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    size.descriptorCount = 1;  // TODO: 2 for double-buffering?
+    VkDescriptorPoolSize size[2] = {0};
+    size[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    size[0].descriptorCount = 1;  // TODO: 2 for double-buffering?
+    size[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    size[1].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    create_info.maxSets = 1;  // TODO: 2 for double-buffering?
-    create_info.poolSizeCount = 1;
-    create_info.pPoolSizes = &size;
+    create_info.maxSets = 1000;  // TODO: 2 for double-buffering?
+    create_info.poolSizeCount = SIZEOF_ARRAY(size);
+    create_info.pPoolSizes = size;
 
     vkCreateDescriptorPool(device, &create_info, 0, pool);
 }
@@ -60,37 +73,44 @@ void _vk_create_descriptor_pool(VkDevice device, OUT VkDescriptorPool *pool)
  * @param device Vulkan device
  * @param pool Vulkan descriptor pool
  * @param set_layout Vulkan set layout
- * @param buffer Vulkan buffer (Uniform buffer 0)
+ * @param buffer0 Vulkan buffer (Uniform buffer 0)
+ * @param buffer1 Vulkan buffer (Uniform buffer 1)
  * @param set Returns the created set
  */
 void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
-        VkDescriptorSetLayout set_layout, VkBuffer buffer,
+        VkDescriptorSetLayout set_layout, VkBuffer buffer0, VkBuffer buffer1,
         OUT VkDescriptorSet *set)
 {
     VkDescriptorSetAllocateInfo alloc_info = {0};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.descriptorPool = pool;
-    alloc_info.descriptorSetCount = 1;  // TODO: double buffering
-    alloc_info.pSetLayouts = &set_layout;  // TODO: double buffering
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts = &set_layout;
 
-    // TODO: again, double-buffering?
     vkAllocateDescriptorSets(device, &alloc_info, set);
 
-    VkDescriptorBufferInfo buffer_info = {0};  // TODO: double buffering
-    buffer_info.buffer = buffer;
-    buffer_info.offset = 0;
-    buffer_info.range = VK_WHOLE_SIZE;  // TODO: double buffering
+    VkDescriptorBufferInfo buffer_info[2] = {0};
+    buffer_info[0].buffer = buffer0;
+    buffer_info[0].offset = 0;
+    buffer_info[0].range = VK_WHOLE_SIZE;
+    buffer_info[1].buffer = buffer1;
+    buffer_info[1].offset = 0;
+    buffer_info[1].range = VK_WHOLE_SIZE;
 
-    VkWriteDescriptorSet write = {0};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = *set;
-    write.dstBinding = 0;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;  // TODO: double-buffer
-    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write.pBufferInfo = &buffer_info;
+    VkWriteDescriptorSet write[2] = {0};
+    write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write[0].dstSet = *set;
+    write[0].descriptorCount = 1;
+    write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write[0].pBufferInfo = &buffer_info[0];
+    write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write[1].dstSet = *set;
+    write[1].dstBinding = 1;
+    write[1].descriptorCount = 1;
+    write[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write[1].pBufferInfo = &buffer_info[1];
 
-    vkUpdateDescriptorSets(device, 1, &write, 0, 0);
+    vkUpdateDescriptorSets(device, SIZEOF_ARRAY(write), write, 0, 0);
 }
 
 /**
@@ -104,7 +124,8 @@ void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
  * @param pipeline Returns the created graphics pipeline
  * @param pipeline_layout Returns the created pipeline layout
  * @param descriptor_set Returns the created descriptor set
- * @param uniform_buffer Returns the created uniform buffer 0
+ * @param uniform_buffer0 Returns the created uniform buffer 0
+ * @param uniform_buffer1 Returns the created uniform buffer 1
  * @return VkResult Vulkan errors
  */
 void _vk_create_graphics_pipeline(VkDevice device,
@@ -114,10 +135,14 @@ void _vk_create_graphics_pipeline(VkDevice device,
         VkRenderPass render_pass, OUT VkPipeline *pipeline,
         OUT VkPipelineLayout *pipeline_layout,
         OUT VkDescriptorSet *descriptor_set,
-        OUT struct vk_uniform_buffer *uniform_buffer)
+        OUT struct vk_uniform_buffer *uniform_buffer0,
+        OUT struct vk_uniform_buffer *uniform_buffer1)
 {
-    *uniform_buffer = vk_create_uniform_buffer(device, physical_device,
+    *uniform_buffer0 = vk_create_uniform_buffer(device, physical_device,
         sizeof(struct vk_uniform_buffer0));
+
+    *uniform_buffer1 = vk_create_uniform_buffer(device, physical_device,
+        sizeof(struct vk_uniform_buffer1));
 
     VkDescriptorSetLayout set_layout;
     _vk_create_pipeline_layout(device, &set_layout, pipeline_layout);
@@ -125,7 +150,8 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkDescriptorPool pool;
     _vk_create_descriptor_pool(device, &pool);
     _vk_allocate_descriptor_sets(device, pool, set_layout,
-            uniform_buffer->buffer.buffer, descriptor_set);
+            uniform_buffer0->buffer.buffer,
+            uniform_buffer1->buffer.buffer, descriptor_set);
 
     VkVertexInputBindingDescription bind_desc = {0};
     bind_desc.binding = 0;
@@ -297,7 +323,7 @@ struct vk_shader vk_create_shader(VkDevice device,
     _vk_create_graphics_pipeline(device, physical_device, vertex_stage,
             fragment_stage, render_pass, &shader.pipeline,
             &shader.pipeline_layout, &shader.descriptor_set,
-            &shader.uniform_buffer);
+            &shader.uniform_buffer0, &shader.uniform_buffer1);
 
     return shader;
 }
