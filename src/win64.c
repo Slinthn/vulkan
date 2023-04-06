@@ -7,8 +7,8 @@
 #pragma warning(pop)
 
 struct sln_app {
-  uint32_t width;
-  uint32_t height;
+    uint32_t width;
+    uint32_t height;
 };
 
 #include "game.c"
@@ -22,37 +22,33 @@ struct sln_app {
  * @param lparam Second parameter
  * @return LRESULT Return code
  */
-LRESULT win_message_proc(
-  HWND window,
-  UINT msg,
-  WPARAM wparam,
-  LPARAM lparam
-) {
-  struct sln_app *state =
-    (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
+LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    struct sln_app *state =
+            (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
 
-  switch (msg) {
-  case WM_CREATE: {
-    // Set the windows state variable pointer as userdata in the window
-    CREATESTRUCT *createstruct = (CREATESTRUCT *)lparam;
-    SetWindowLongPtrA(window, GWLP_USERDATA,
-      (LONG_PTR)createstruct->lpCreateParams);
+    switch (msg) {
+    case WM_CREATE: {
+        // Set the windows state variable pointer as userdata in the window
+        CREATESTRUCT *createstruct = (CREATESTRUCT *)lparam;
+        SetWindowLongPtrA(window, GWLP_USERDATA,
+                (LONG_PTR)createstruct->lpCreateParams);
 
-    return 1;
-  }
+        return 1;
+    }
 
-  case WM_CLOSE:
-  case WM_DESTROY: {
-    ExitProcess(0);
-  } break;
+    case WM_CLOSE:
+    case WM_DESTROY: {
+        ExitProcess(0);
+    } break;
 
-  case WM_SIZE: {
-    state->width = LOWORD(lparam);
-    state->height = HIWORD(lparam);
-  } break;
-  }
+    case WM_SIZE: {
+        state->width = LOWORD(lparam);
+        state->height = HIWORD(lparam);
+    } break;
+    }
 
-  return DefWindowProcA(window, msg, wparam, lparam);
+    return DefWindowProcA(window, msg, wparam, lparam);
 }
 
 /**
@@ -61,35 +57,34 @@ LRESULT win_message_proc(
  * @param param 
  * @return DWORD 
  */
-DWORD win_game_loop(
-  void *param
-) {
-  struct sln_app *app = (struct sln_app *)param;
+DWORD win_game_loop(void *param)
+{
+    struct sln_app *app = (struct sln_app *)param;
 
-  uint64_t counter;
-  uint64_t frequency;
-  QueryPerformanceCounter((LARGE_INTEGER *)&counter);
-  QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
+    uint64_t counter;
+    uint64_t frequency;
+    QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+    QueryPerformanceFrequency((LARGE_INTEGER *)&frequency);
 
-  uint32_t fps = 0;
+    uint32_t fps = 0;
 
-  while (1) {
-    sln_update(*app);
+    while (1) {
+        sln_update(*app);
 
-    uint64_t new_counter;
-    QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
+        uint64_t new_counter;
+        QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
 
-    fps++;
-    if ((new_counter - counter) / frequency >= 1) {
-      char buffer[64];
+        fps++;
+        if ((new_counter - counter) / frequency >= 1) {
+            char buffer[64];
 
-      sprintf_s(buffer, sizeof(buffer), "FPS: %u\n", fps);
-      OutputDebugString(buffer);
+            sprintf_s(buffer, sizeof(buffer), "FPS: %u\n", fps);
+            OutputDebugString(buffer);
 
-      fps = 0;
-      QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+            fps = 0;
+            QueryPerformanceCounter((LARGE_INTEGER *)&counter);
+        }
     }
-  }
 }
 
 
@@ -102,42 +97,37 @@ DWORD win_game_loop(
  * @param show Show mode (in exe properties)
  * @return int Return code
  */
-int APIENTRY WinMain(
-#pragma warning(disable:4100)
-  HINSTANCE hinstance,
-  HINSTANCE prev_hinstance,
-  LPSTR cmd,
-  int show
-#pragma warning(default:4100)
-) {
-  struct sln_app app = {0};
-  struct vk_surface surface = {0};
-  surface.hinstance = hinstance;
+int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
+        LPSTR cmd, int show)
+{
+    struct sln_app app = {0};
+    struct vk_surface surface = {0};
+    surface.hinstance = hinstance;
 
-  WNDCLASSEXA wc = {0};
-  wc.cbSize = sizeof(wc);
-  wc.hInstance = hinstance;
-  wc.lpfnWndProc = win_message_proc;
-  wc.lpszClassName = "12/01/2023Slinapp";
+    WNDCLASSEXA wc = {0};
+    wc.cbSize = sizeof(wc);
+    wc.hInstance = hinstance;
+    wc.lpfnWndProc = win_message_proc;
+    wc.lpszClassName = "12/01/2023Slinapp";
 
-  RegisterClassExA(&wc);
+    RegisterClassExA(&wc);
 
-  surface.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
-    WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-    SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
+    surface.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
+            WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
+            SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
 
-  sln_init(surface);
+    sln_init(surface);
 
-  CreateThread(0, 0, win_game_loop, &app, 0, 0);
+    CreateThread(0, 0, win_game_loop, &app, 0, 0);
 
-  while (1) {
-    MSG msg;
-    while (PeekMessageA(&msg, surface.hwnd, 0, 0, PM_REMOVE)) {
-      TranslateMessage(&msg);
-      DispatchMessageA(&msg);
+    while (1) {
+        MSG msg;
+        while (PeekMessageA(&msg, surface.hwnd, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+
+        // Not to overload window messages
+        Sleep(10);
     }
-
-    // Not to overload window messages
-    Sleep(10);
-  }
 }

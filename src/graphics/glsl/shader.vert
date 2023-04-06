@@ -7,15 +7,17 @@ layout(location = 2) in vec3 normal;
 layout(location = 0) out vec3 pos;
 
 layout(set = 0, binding = 0) uniform world_information {
-  mat4 projection;
-  mat4 view;
-  mat4 model;
+    mat4 projection;
+    mat4 view;
+    mat4 model;
 } world;
 
-void main(void) {
-
-  gl_Position =
-    world.projection * inverse(world.view) * world.model * vec4(position, 1);
-
-  pos = position;
+/**
+ *
+ */
+void main(void)
+{
+    gl_Position = world.projection * inverse(world.view)
+            * world.model * vec4(position, 1);
+    pos = position;
 }
