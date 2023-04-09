@@ -1,5 +1,5 @@
-#define SLN_WINDOW_WIDTH 1920
-#define SLN_WINDOW_HEIGHT 1080
+#define SLN_WINDOW_WIDTH 1280
+#define SLN_WINDOW_HEIGHT 720
 #define SLN_FRAMEBUFFER_COUNT 2
 
 #ifdef SLN_VULKAN
@@ -11,42 +11,21 @@
 
 #include "file.c"
 #include "graphics/vulkan.h"
-
-struct sln_model {
-    struct vk_buffer vertex_buffer;
-    struct vk_index_buffer index_buffer;
-};
+#include "world/world.h"
 
 struct sln_resources {
-    struct sln_model model, model2;
+    struct sln_world world;
 };
 
-#pragma pack(push, 1)
-struct sln_vertex {
-    float position[3];
-    float texture[2];
-    float normal[3];
+struct sln_state {
+    struct transform view;
 };
-#pragma pack(pop)
-
-#include "model/sm.c"
 
 // TODO: daz no good...
-static struct vk_state vulkan;
-static struct sln_resources resources;
-static struct vk_push_contant0_list push_constant_list;
-
-/**
- * @brief Load the models for the game
- * 
- */
-void sln_load_models(void)
-{
-    resources.model = sln_load_sm(vulkan.device, vulkan.physical_device,
-            "tower.sm");
-    resources.model2 = sln_load_sm(vulkan.device, vulkan.physical_device,
-            "cube.sm");
-}
+struct vk_state vulkan;
+struct sln_state game;
+struct sln_resources resources;
+struct vk_push_contant0_list push_constant_list;
 
 /**
  * @brief Initialise the game
@@ -56,37 +35,47 @@ void sln_load_models(void)
 void sln_init(struct vk_surface surface)
 {
     vulkan = vk_init(surface);
-    sln_load_models();
+
+    resources.world = sln_load_sw(vulkan.device, vulkan.physical_device, "world.sw");
 }
 
 /**
- * @brief TODO:
+ * @brief Render all objects TODO:
  * 
  */
-void sln_draw_model(struct sln_model model, struct vk_push_constant0 *constant)
+void sln_render(struct sln_app app)
 {
-    VkDeviceSize offsets[1] = {0};
-    vkCmdBindVertexBuffers(vulkan.command_buffer, 0, 1,
-        &model.vertex_buffer.buffer, offsets);
+    struct vk_model *models = resources.world.models;
+    struct sln_object *objects = resources.world.objects;
 
-    vkCmdBindIndexBuffer(vulkan.command_buffer,
-            model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    // Constant buffer 0
+    struct vk_uniform_buffer0 buf0 = {0};
+    mat4_perspective(&buf0.projection,
+            SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
+            0.1f, 1000.0f);
+    mat4_transform(&buf0.view, game.view);
 
-    vkCmdPushConstants(vulkan.command_buffer, vulkan.shader.pipeline_layout,
-            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
-            constant);
+    // Constant buffer 1
+    struct vk_uniform_buffer1 buf1 = {0};
 
-    vkCmdDrawIndexed(vulkan.command_buffer, model.index_buffer.index_count, 1,
-            0, 0, 0);
-}
+    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
+        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
+            mat4_transform(&buf1.model[i], objects[i].transform);
 
-void sln_render(void)
-{
-    push_constant_list.constants[0].index = 0;
-    push_constant_list.constants[0].index = 1;
+    // Render
+    vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1}, &buf0, &buf1,
+            app.width, app.height);
 
-    sln_draw_model(resources.model, &push_constant_list.constants[0]);
-    sln_draw_model(resources.model2, &push_constant_list.constants[1]);
+    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++) {
+        if (!(objects[i].flags & SLN_WORLD_FLAG_EXISTS))
+            continue;
+
+        struct vk_model model = models[objects[i].model_index];
+        push_constant_list.constants[i].index = i;
+        sln_draw_model(&vulkan, model, &push_constant_list.constants[i]);
+    }
+
+    vk_render_end(vulkan);
 }
 
 /**
@@ -96,41 +85,20 @@ void sln_render(void)
  */
 void sln_update(struct sln_app app)
 {
-    static struct transform model = {0};
-    model.position.c.x += app.controls.move.c.x / 10.0f;
-    model.position.c.z += -app.controls.move.c.y / 10.0f;
+    float rotcos = cosf(game.view.rotation.c.y);
+    float rotsin = sinf(game.view.rotation.c.y);
 
-    if (app.controls.actions & ACTION_JUMP) {
-        model.position.c.y = sinf(model.rotation.c.y * 3) / 3.0f;
-        model.rotation.c.y += 0.1f;
-        model.rotation.c.z += 0.05f;
-        model.rotation.c.x += 0.02f;
-    }
-    model.scale = (union vector3){1, 1, 1};
+    game.view.position.c.x += (app.controls.move.c.x * rotcos - app.controls.move.c.y * rotsin) / 10.0f;
+    game.view.position.c.z += (-app.controls.move.c.x * rotsin - app.controls.move.c.y * rotcos) / 10.0f;
+    game.view.scale = (union vector3){1, 1, 1};
 
-    struct transform view = {0};
-    view.position = (union vector3){0, 0, -4};
-    view.scale = (union vector3){1, 1, 1};
+    game.view.rotation.c.y += app.controls.look.c.x / 80.0f;
+    game.view.rotation.c.x += -app.controls.look.c.y / 80.0f;
 
-    struct vk_uniform_buffer0 buf0 = {0};
-    mat4_perspective(&buf0.projection,
-            SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
-            0.1f, 1000.0f);
+    if (game.view.rotation.c.x > DEG_TO_RAD(90))
+        game.view.rotation.c.x = DEG_TO_RAD(90);
+    else if (game.view.rotation.c.x < -DEG_TO_RAD(90))
+        game.view.rotation.c.x = -DEG_TO_RAD(90);
 
-    mat4_transform(&buf0.view, view);
-
-    struct vk_uniform_buffer1 buf1 = {0};
-    mat4_transform(&buf1.model[0], model);
-
-    static struct transform model2 = {0};
-    model2.scale = (union vector3){1, 1, 1};
-    model2.position = (union vector3){0, 0, 5};
-    model2.rotation = (union vector3){0, DEG_TO_RAD(90), 0};
-
-    mat4_transform(&buf1.model[1], model2);
-
-    vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1}, &buf0, &buf1,
-            app.width, app.height);
-    sln_render();
-    vk_render_end(vulkan);
+    sln_render(app);
 }

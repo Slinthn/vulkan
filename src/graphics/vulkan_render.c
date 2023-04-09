@@ -39,7 +39,8 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
         struct vk_uniform_buffer0 *buffer0, struct vk_uniform_buffer1 *buffer1,
         uint32_t viewport_width, uint32_t viewport_height)
 {
-    vkWaitForFences(state->device, 1, &state->render_ready_fence, 1, UINT64_MAX);
+    vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
+            UINT64_MAX);
     vkResetFences(state->device, 1, &state->render_ready_fence);
 
     vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX,
@@ -69,6 +70,8 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     render_pass_info.renderArea.offset.x = 0;
     render_pass_info.renderArea.offset.y = 0;
     render_pass_info.renderArea.extent = state->extent;
+    //render_pass_info.renderArea.extent.width /= 2;  // TODO:
+    //render_pass_info.renderArea.extent.height /= 2;  // TODO:
     render_pass_info.clearValueCount = SIZEOF_ARRAY(clear_value);
     render_pass_info.pClearValues = clear_value;
 
@@ -80,7 +83,7 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
 
     vkCmdBindDescriptorSets(state->command_buffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS, state->shader.pipeline_layout, 0,
-            1, &state->shader.descriptor_set, 0, 0);  // TODO: double-buffering
+            1, &state->shader.descriptor_set, 0, 0);
 
     vk_update_uniform_buffer(state->shader.uniform_buffer0, buffer0);
     vk_update_uniform_buffer(state->shader.uniform_buffer1, buffer1);
@@ -120,4 +123,28 @@ void vk_render_end(struct vk_state state)
     present_info.pImageIndices = &state.current_image_index;
 
     vkQueuePresentKHR(state.queue.type.present, &present_info);
+}
+
+/**
+ * @brief Draw a model
+ * 
+ * @param model Model to draw
+ * @param constant Push constant to apply to this draw call
+ */
+void sln_draw_model(struct vk_state *state, struct vk_model model,
+        struct vk_push_constant0 *constant)
+{
+    VkDeviceSize offsets[1] = {0};
+    vkCmdBindVertexBuffers(state->command_buffer, 0, 1,
+        &model.vertex_buffer.buffer, offsets);
+
+    vkCmdBindIndexBuffer(state->command_buffer,
+            model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdPushConstants(state->command_buffer, state->shader.pipeline_layout,
+            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
+            constant);
+
+    vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
+            0, 0, 0);
 }

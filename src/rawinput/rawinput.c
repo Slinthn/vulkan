@@ -37,10 +37,19 @@ void rawinput_parse(struct user_controls *control, HRAWINPUT rawinput)
     GetRawInputData(rawinput, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
 
     switch (data->header.dwType) {
+    case RIM_TYPEKEYBOARD: {
+        rawinput_parse_keyboard_data(control, data);
+        control->is_controller = 0;
+    } break;
+    
+    case RIM_TYPEMOUSE: {
+        rawinput_parse_mouse_data(control, data);
+        control->is_controller = 0;
+    } break;
+
     case RIM_TYPEHID: {
         struct rawinput_dualshock4 *ds4data =
                 (struct rawinput_dualshock4 *)data->data.hid.bRawData;
-
         rawinput_parse_dualshock4_data(control, ds4data);
     } break;
     }

@@ -62,10 +62,10 @@ LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 /**
- * @brief TODO
+ * @brief Game loop. Should be on a separate thread
  * 
- * @param param 
- * @return DWORD 
+ * @param param Pointer to a sln_app structure
+ * @return DWORD Return code
  */
 DWORD win_game_loop(void *param)
 {
@@ -144,6 +144,10 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
         }
 
         // Not to overload window messages
-        Sleep(10);
+        Sleep(16);
+    
+        if (!app.controls.is_controller) {
+            app.controls.look = (union vector2){0};
+        }
     }
 }

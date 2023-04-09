@@ -1,10 +1,9 @@
 /**
- * @brief Create a Vulkan pipeline layout TODO:
+ * @brief Create a Vulkan pipeline layout
  * 
  * @param device Vulkan device
  * @param set_layout Returns the created set layout
  * @param pipeline Returns the created pipeline layout
- * @return VkResult Vulkan errors
  */
 void _vk_create_pipeline_layout(VkDevice device,
         OUT VkDescriptorSetLayout *set_layout,
@@ -17,6 +16,7 @@ void _vk_create_pipeline_layout(VkDevice device,
     binding[0].descriptorCount = 1;
     binding[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+    // Uniform buffer 1
     binding[1].binding = 1;
     binding[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binding[1].descriptorCount = 1;
@@ -31,7 +31,7 @@ void _vk_create_pipeline_layout(VkDevice device,
 
     VkPushConstantRange push_constant = {0};
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constant.size = 4;
+    push_constant.size = sizeof(struct vk_push_constant0);
 
     // Pipeline creation
     VkPipelineLayoutCreateInfo create_info = {0};
@@ -54,13 +54,13 @@ void _vk_create_descriptor_pool(VkDevice device, OUT VkDescriptorPool *pool)
 {
     VkDescriptorPoolSize size[2] = {0};
     size[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    size[0].descriptorCount = 1;  // TODO: 2 for double-buffering?
+    size[0].descriptorCount = 1;
     size[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     size[1].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    create_info.maxSets = 1000;  // TODO: 2 for double-buffering?
+    create_info.maxSets = 1000;
     create_info.poolSizeCount = SIZEOF_ARRAY(size);
     create_info.pPoolSizes = size;
 
@@ -114,7 +114,7 @@ void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
 }
 
 /**
- * @brief Creates a Vulkan graphics pipeline TODO:
+ * @brief Creates a Vulkan graphics pipeline
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
@@ -126,7 +126,6 @@ void _vk_allocate_descriptor_sets(VkDevice device, VkDescriptorPool pool,
  * @param descriptor_set Returns the created descriptor set
  * @param uniform_buffer0 Returns the created uniform buffer 0
  * @param uniform_buffer1 Returns the created uniform buffer 1
- * @return VkResult Vulkan errors
  */
 void _vk_create_graphics_pipeline(VkDevice device,
         VkPhysicalDevice physical_device,
@@ -150,12 +149,12 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkDescriptorPool pool;
     _vk_create_descriptor_pool(device, &pool);
     _vk_allocate_descriptor_sets(device, pool, set_layout,
-            uniform_buffer0->buffer.buffer,
-            uniform_buffer1->buffer.buffer, descriptor_set);
+            uniform_buffer0->buffer.buffer, uniform_buffer1->buffer.buffer,
+            descriptor_set);
 
     VkVertexInputBindingDescription bind_desc = {0};
     bind_desc.binding = 0;
-    bind_desc.stride = 32;  // TODO: vertex size
+    bind_desc.stride = sizeof(struct vk_vertex);
     bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     VkVertexInputAttributeDescription attributes[3] = {0};
@@ -177,7 +176,6 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkPipelineVertexInputStateCreateInfo vertex_state = {0};
     vertex_state.sType =
             VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    
     vertex_state.vertexBindingDescriptionCount = 1;
     vertex_state.pVertexBindingDescriptions = &bind_desc;
     vertex_state.vertexAttributeDescriptionCount = SIZEOF_ARRAY(attributes);
@@ -186,7 +184,6 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkPipelineInputAssemblyStateCreateInfo input_assemble = {0};
     input_assemble.sType =
             VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-
     input_assemble.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     input_assemble.primitiveRestartEnable = 0;
 
@@ -199,17 +196,17 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkPipelineRasterizationStateCreateInfo rasterisation = {0};
     rasterisation.sType =
             VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-
     rasterisation.depthClampEnable = 0;
     rasterisation.rasterizerDiscardEnable = 0;
     rasterisation.polygonMode = VK_POLYGON_MODE_FILL;
     rasterisation.lineWidth = 1;
-    rasterisation.cullMode = VK_CULL_MODE_NONE; // TODO:
+    rasterisation.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterisation.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterisation.depthBiasEnable = 0;
 
     VkPipelineMultisampleStateCreateInfo multisample = {0};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     multisample.sampleShadingEnable = 0;
 
@@ -220,7 +217,8 @@ void _vk_create_graphics_pipeline(VkDevice device,
             | VK_COLOR_COMPONENT_A_BIT;
 
     VkPipelineColorBlendStateCreateInfo colour_blend = {0};
-    colour_blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colour_blend.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colour_blend.logicOpEnable = 0;
     colour_blend.attachmentCount = SIZEOF_ARRAY(blend_attachments);
     colour_blend.pAttachments = blend_attachments;
@@ -238,7 +236,6 @@ void _vk_create_graphics_pipeline(VkDevice device,
     VkPipelineDepthStencilStateCreateInfo depth_state = {0};
     depth_state.sType =
             VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    
     depth_state.depthTestEnable = 1;
     depth_state.depthWriteEnable = 1;
     depth_state.depthCompareOp = VK_COMPARE_OP_LESS;
@@ -285,7 +282,9 @@ void _vk_create_shader_module(VkDevice device, void *code, uint64_t size,
 /**
  * @brief Create a vertex and fragment shader into a single graphics pipeline
  * 
- * @param state Vulkan state TODO:
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @param render_pass Vulkan render pass
  * @param vertex_data Vertex shader data
  * @param vertex_size Vertex shader size in bytes
  * @param fragment_data Fragment shader data

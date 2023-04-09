@@ -19,9 +19,11 @@ struct rawinput_dualshock4 {
 struct user_controls {
   union vector2 move;
   union vector2 look;
-  uint8_t actions;
-  uint8_t unused[3];
+  uint64_t actions;
+  uint64_t is_controller;
 };
 
+#include "keyboard.c"
+#include "mouse.c"
 #include "dualshock4.c"
 #include "rawinput.c"

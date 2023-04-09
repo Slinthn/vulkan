@@ -39,6 +39,11 @@ struct vk_uniform_buffer {
     uint32_t unused;
 };
 
+struct vk_model {
+    struct vk_buffer vertex_buffer;
+    struct vk_index_buffer index_buffer;
+};
+
 struct vk_shader {
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
@@ -58,7 +63,6 @@ struct vk_uniform_buffer1 {
 };
 #pragma pack(pop)
 
-
 #pragma pack(push, 1)
 struct vk_push_constant0 {
     uint32_t index;
@@ -73,6 +77,14 @@ struct vk_image {
     VkImage image;
     VkDeviceMemory memory;
 };
+
+#pragma pack(push, 1)
+struct vk_vertex {
+    union vector3 position;
+    union vector2 texture;
+    union vector3 normal;
+};
+#pragma pack(pop)
 
 struct vk_state {
     VkInstance instance;
@@ -97,16 +109,6 @@ struct vk_state {
 #ifdef SLN_DEBUG
     VkDebugUtilsMessengerEXT debug_messenger;
 #endif
-};
-
-char *vk_extensions[] = {
-    "VK_KHR_surface",
-#ifdef SLN_DEBUG
-    "VK_EXT_debug_utils",
-#endif  // SLN_DEBUG
-#ifdef SLN_WIN64
-    "VK_KHR_win32_surface"
-#endif  // SLN_WIN64
 };
 
 #ifdef SLN_WIN64

@@ -12,6 +12,8 @@ pushd ..\bin
 py ../scripts/ply.py ../res/cube.ply cube.sm
 py ../scripts/ply.py ../res/tower.ply tower.sm
 
+py ../scripts/world.py ../scripts/world.json ../bin/world.sw
+
 rem glslangValidator -e main -gVS -V -o shader-v.spv ..\src\graphics\glsl\shader.vert
 rem glslangValidator -e main -gVS -V -o shader-f.spv ..\src\graphics\glsl\shader.frag
 glslc -o shader-v.spv ..\src\graphics\glsl\shader.vert

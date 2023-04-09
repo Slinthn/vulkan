@@ -7,11 +7,25 @@
  */
 void _vk_create_instance(OUT VkInstance *instance)
 {
+    char *vk_extensions[] = {
+        "VK_KHR_surface",
+#ifdef SLN_DEBUG
+        "VK_EXT_debug_utils",
+#endif  // SLN_DEBUG
+#ifdef SLN_WIN64
+        "VK_KHR_win32_surface"
+#endif  // SLN_WIN64
+    };
+
     VkApplicationInfo app_info = {0};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.apiVersion = VK_API_VERSION_1_0;
 
     VkInstanceCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    create_info.pApplicationInfo = &app_info;
+    create_info.enabledExtensionCount = SIZEOF_ARRAY(vk_extensions);
+    create_info.ppEnabledExtensionNames = vk_extensions;
 
 #ifdef SLN_DEBUG
     char *layers[] = {
@@ -20,14 +34,7 @@ void _vk_create_instance(OUT VkInstance *instance)
 
     create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
     create_info.ppEnabledLayerNames = layers;
-#endif  // SLN_DEBUG
 
-    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create_info.pApplicationInfo = &app_info;
-    create_info.enabledExtensionCount = SIZEOF_ARRAY(vk_extensions);
-    create_info.ppEnabledExtensionNames = vk_extensions;
-
-#ifdef SLN_DEBUG
     VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
     _vk_populate_debug_struct(&messenger_create_info);
 
@@ -221,11 +228,11 @@ complete:
 }
 
 /**
- * @brief TODO
+ * @brief Calculate a suitable width and height for the viewport and scissors
  * 
- * @param physical_device 
- * @param surface 
- * @param extent 
+ * @param physical_device Vulkan physical device
+ * @param surface Vulkan surface
+ * @param extent Returns the extent details
  */
 void _vk_calculate_extent(VkPhysicalDevice physical_device,
         VkSurfaceKHR surface, OUT VkExtent2D *extent)
@@ -242,9 +249,14 @@ void _vk_calculate_extent(VkPhysicalDevice physical_device,
 }
 
 /**
- * @brief Create a swapchain TODO:
+ * @brief Create a swapchain
  * 
  * @param state Vulkan state
+ * @param surface Vulkan surface
+ * @param surface_format Vulkan surface format
+ * @param extent Vulkan extent
+ * @param families Queue families to use
+ * @param swapchain Returns the created swapchain
  */
 void _vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
         VkSurfaceFormatKHR surface_format, VkExtent2D extent,
@@ -277,9 +289,11 @@ void _vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
 }
 
 /**
- * @brief Create a Vulkan render pass TODO:
+ * @brief Create a Vulkan render pass
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param surface_format Vulkan surface format
+ * @param render_pass Returns the created render pass
  */
 void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
         OUT VkRenderPass *render_pass)
@@ -288,7 +302,7 @@ void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
     
     // Colour
     attachment[0].format = surface_format.format;
-    attachment[0].samples = 1;
+    attachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -297,8 +311,8 @@ void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
     attachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
      // Depth stencil
-    attachment[1].format = VK_FORMAT_D32_SFLOAT;  // TODO: good?
-    attachment[1].samples = 1;
+    attachment[1].format = VK_FORMAT_D32_SFLOAT;  // TODO: check capabilities
+    attachment[1].samples = VK_SAMPLE_COUNT_1_BIT;
     attachment[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachment[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachment[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -347,9 +361,11 @@ void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
 }
 
 /**
- * @brief Create a Vulkan command pool TODO:
+ * @brief Create a Vulkan command pool
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param families Queue families
+ * @param command_pool Returns the created command pool
  */
 void _vk_create_command_pool(VkDevice device, union vk_queue_family families,
         VkCommandPool *command_pool)
@@ -365,7 +381,9 @@ void _vk_create_command_pool(VkDevice device, union vk_queue_family families,
 /**
  * @brief Create a Vulkan command buffer
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param command_pool Vulkan command pool
+ * @param command_buffer Returns the created command buffer
  */
 void _vk_create_command_buffer(VkDevice device, VkCommandPool command_pool,
         VkCommandBuffer *command_buffer)
@@ -380,12 +398,13 @@ void _vk_create_command_buffer(VkDevice device, VkCommandPool command_pool,
 }
 
 /**
- * @brief Creates an image view for the passed image TODO:
+ * @brief Creates an image view for the passed image
  * 
  * @param device Vulkan device
  * @param image Image to use
  * @param format Swapchain colour format
- * @param view Returns image view
+ * @param flags Flags to do with how the image should be viewed
+ * @param view Returns the created image view
  */
 void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
         VkImageAspectFlags flags, VkImageView *view)
@@ -412,7 +431,8 @@ void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
  * @param device Vulkan device
  * @param extent Dimensions of framebuffer
  * @param render_pass Render pass
- * @param image_view Image view to use
+ * @param colour_view Framebuffer view
+ * @param depth_view Depth buffer view
  * @param framebuffer Returns the framebuffer
  */
 void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
@@ -435,9 +455,10 @@ void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
 }
 
 /**
- * @brief TODO:
+ * @brief Create a depth buffer
  * 
- * @param state 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
  * @return struct vk_image 
  */
 struct vk_image _vk_create_depth_buffer(VkDevice device,
@@ -450,9 +471,15 @@ struct vk_image _vk_create_depth_buffer(VkDevice device,
 }
 
 /**
- * @brief Creates views of framebuffers
+ * @brief Creates views of all framebuffers
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @param swapchain Vulkan swapchain
+ * @param surface_format Vulkan surface format
+ * @param extent Width and height
+ * @param render_pass Vulkan render pass
+ * @param framebuffers Returns the created framebuffer information
  */
 void _vk_get_swapchain_images(VkDevice device, VkPhysicalDevice physical_device,
         VkSwapchainKHR swapchain, VkSurfaceFormatKHR surface_format,
@@ -485,11 +512,12 @@ void _vk_get_swapchain_images(VkDevice device, VkPhysicalDevice physical_device,
 }
 
 /**
- * @brief Create Vulkan semaphores TODO:
+ * @brief Create a Vulkan semaphore
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param semaphore Returns the created semaphore
  */
-void _vk_create_semaphore(VkDevice device, VkSemaphore *semaphore)
+void _vk_create_semaphore(VkDevice device, OUT VkSemaphore *semaphore)
 {
     VkSemaphoreCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -498,9 +526,10 @@ void _vk_create_semaphore(VkDevice device, VkSemaphore *semaphore)
 }
 
 /**
- * @brief Create a Vulkan fence TODO:
+ * @brief Create a Vulkan fence
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
+ * @param fence Returns the created fence
  */
 void _vk_create_fence(VkDevice device, VkFence *fence)
 {
@@ -512,13 +541,11 @@ void _vk_create_fence(VkDevice device, VkFence *fence)
 }
 
 /**
- * @brief Initialises Vulkan. Should be called after program starts
+ * @brief Initialises Vulkan. Should be called after program starts. Creates
+ *     everything in order to begin a Vulkan application
  * 
- * @param hinstance Windows HINSTNACE
- * @param hwnd Windows HWND
- * @param extent Preferred dimensions of framebuffer
- * @param format Swapchain colour format
- * @return struct vk_state A structure containing Vulkan details
+ * @param surface Applicaton surface
+ * @return struct vk_state A structure containing Vulkan information.
  */
 struct vk_state vk_init(struct vk_surface surface)
 {

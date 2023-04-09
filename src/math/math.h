@@ -31,3 +31,4 @@ struct transform {
 };
 
 #include "matrix4.c"
+#include "transform.c"

@@ -1,0 +1,20 @@
+{
+  "models": [
+    {
+      "name": "cube",
+      "file": "cube.sm"
+    }
+  ],
+
+  "objects": [
+    {
+      "model": "cube",
+      "position": [0, 0, 5]
+    },
+    {
+      "model": "cube",
+      "position": [3, 1, 2],
+      "rotation": [1, 2, 3]
+    }
+  ]
+}
