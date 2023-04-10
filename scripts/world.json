@@ -1,20 +1,56 @@
 {
   "models": [
     {
-      "name": "cube",
-      "file": "cube.sm"
+      "name": "shop",
+      "file": "shop.sm"
+    },
+    {
+      "name": "counter",
+      "file": "counter.sm"
+    },
+    {
+      "name": "shelf",
+      "file": "shelf.sm"
     }
   ],
 
   "objects": [
     {
-      "model": "cube",
-      "position": [0, 0, 5]
+      "model": "shop",
+      "position": [0, 0, 0],
+      "rotation": [180, 0, 0],
+      "scale": [1, 1, 1]
     },
     {
-      "model": "cube",
-      "position": [3, 1, 2],
-      "rotation": [1, 2, 3]
+      "model": "counter",
+      "position": [-6.83, -1, 6.93]
+    },
+    {
+      "model": "shelf",
+      "position": [-5.06, -1, -2.22]
+    },
+    {
+      "model": "shelf",
+      "position": [-0.48, -1, -2.22]
+    },
+    {
+      "model": "shelf",
+      "position": [3.75, -1, -2.22]
+    }
+  ],
+
+  "point-cuboids": [
+    {
+      "centre": [-5.06, -1, -2.22],
+      "dimension": [0.5, 1.7, 5.6]
+    },
+    {
+      "centre": [-0.48, -1, -2.22],
+      "dimension": [0.5, 1.7, 5.6]
+    },
+    {
+      "centre": [3.75, -1, -2.22],
+      "dimension": [0.5, 1.7, 5.6]
     }
   ]
 }

@@ -10,7 +10,8 @@
 #endif  // SLN_VULKAN
 
 #include "file.c"
-#include "graphics/vulkan.h"
+#include "vulkan/vulkan.h"
+#include "physics/physics.h"
 #include "world/world.h"
 
 struct sln_resources {
@@ -19,6 +20,7 @@ struct sln_resources {
 
 struct sln_state {
     struct transform view;
+    struct point_cuboid player;
 };
 
 // TODO: daz no good...
@@ -37,6 +39,8 @@ void sln_init(struct vk_surface surface)
     vulkan = vk_init(surface);
 
     resources.world = sln_load_sw(vulkan.device, vulkan.physical_device, "world.sw");
+
+    game.player.dimension = (union vector3){0.4f, 1, 0.4f};
 }
 
 /**
@@ -90,6 +94,7 @@ void sln_update(struct sln_app app)
 
     game.view.position.c.x += (app.controls.move.c.x * rotcos - app.controls.move.c.y * rotsin) / 10.0f;
     game.view.position.c.z += (-app.controls.move.c.x * rotsin - app.controls.move.c.y * rotcos) / 10.0f;
+    game.view.position.c.y = -2;
     game.view.scale = (union vector3){1, 1, 1};
 
     game.view.rotation.c.y += app.controls.look.c.x / 80.0f;
@@ -99,6 +104,16 @@ void sln_update(struct sln_app app)
         game.view.rotation.c.x = DEG_TO_RAD(90);
     else if (game.view.rotation.c.x < -DEG_TO_RAD(90))
         game.view.rotation.c.x = -DEG_TO_RAD(90);
+
+    game.player.centre.c.x = game.view.position.c.x;
+    game.player.centre.c.y = game.view.position.c.y;
+    game.player.centre.c.z = game.view.position.c.z;
+
+    physics_run(resources.world.physics, &game.player);
+
+    game.view.position.c.x = game.player.centre.c.x;
+    game.view.position.c.y = game.player.centre.c.y;
+    game.view.position.c.z = game.player.centre.c.z;
 
     sln_render(app);
 }

@@ -11,12 +11,13 @@ struct sw_header {
     uint8_t signature[4];
     uint32_t model_count;
     uint32_t object_count;
+    uint32_t point_cuboid_count;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 struct sw_model {
-    char filename[10];
+    char filename[20];
 };
 #pragma pack(pop)
 
@@ -26,6 +27,14 @@ struct sw_object {
     float position[3];
     float rotation[3];
     float scale[3];
+};
+#pragma pack(pop)
+
+
+#pragma pack(push, 1)
+struct sw_point_cuboid {
+    float centre[3];
+    float dimension[3];
 };
 #pragma pack(pop)
 
@@ -40,6 +49,7 @@ struct sln_object {
 struct sln_world {
     struct vk_model models[100];  // TODO: random number
     struct sln_object objects[1000];  // TODO: random number
+    struct physics_world physics;
 };
 
 #include "model.c"

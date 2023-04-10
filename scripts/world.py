@@ -1,6 +1,7 @@
 import sys
 from array import array
 import json
+import math
 
 if len(sys.argv) != 3:
     print(f"ERROR: Syntax: py {sys.argv[0]} input_file output_file")
@@ -16,7 +17,7 @@ data = json.loads(inputfile.read())
 outputfile.write(array("b", [0x53, 0x57, 0, 0]))
 outputfile.write(array("i", [len(data["models"])]))
 outputfile.write(array("i", [len(data["objects"])]))
-
+outputfile.write(array("i", [len(data["point-cuboids"])]))
 
 models = []
 
@@ -24,7 +25,7 @@ for index, model in enumerate(data["models"]):
     name = model["name"]
     file = model["file"]
 
-    zero_count = 10 - len(file)
+    zero_count = 20 - len(file)
 
     outputfile.write(array("b", file.encode()))
     outputfile.write(array("b", [0] * zero_count))
@@ -37,7 +38,16 @@ for object in data["objects"]:
     rotation = object.get("rotation", [0, 0, 0])
     scale = object.get("scale", [1, 1, 1])
 
+    rotation = [math.radians(x) for x in rotation]
+
     outputfile.write(array("i", [model_index]))
     outputfile.write(array("f", position))
     outputfile.write(array("f", rotation))
     outputfile.write(array("f", scale))
+
+for cb in data["point-cuboids"]:
+    centre = cb.get("centre", [0, 0, 0])
+    dimension = cb.get("dimension", [0, 0, 0])
+
+    outputfile.write(array("f", centre))
+    outputfile.write(array("f", dimension))
