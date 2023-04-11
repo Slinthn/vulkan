@@ -15,8 +15,9 @@ py ../scripts/ply.py ../res/shop.ply shop.sm
 
 py ../scripts/world.py ../scripts/world.json ../bin/world.sw
 
-rem glslangValidator -e main -gVS -V -o shader-v.spv ..\src\graphics\glsl\shader.vert
-rem glslangValidator -e main -gVS -V -o shader-f.spv ..\src\graphics\glsl\shader.frag
+py ../scripts/bmp.py ../res/cat.bmp ../bin/cat.simg
+py ../scripts/bmp.py ../res/dog.bmp ../bin/dog.simg
+
 glslc -o shader-v.spv ..\src\vulkan\glsl\shader.vert
 glslc -o shader-f.spv ..\src\vulkan\glsl\shader.frag
 

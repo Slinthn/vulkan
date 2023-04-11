@@ -1,12 +1,13 @@
 /**
  * @brief Creates a Vulkan 1.0 instance, with surface support and debug
- *     validation, if debug is defined
+ *     validation, if SLN_DEBUG is defined
  *
  * @param instance Pointer to vulkan instance handle in which the resulting
  *     instance is returned
  */
-void _vk_create_instance(OUT VkInstance *instance)
-{
+void _vk_create_instance(
+    OUT VkInstance *instance
+){
     char *vk_extensions[] = {
         "VK_KHR_surface",
 #ifdef SLN_DEBUG
@@ -52,35 +53,31 @@ void _vk_create_instance(OUT VkInstance *instance)
  * @param physical_device Pointer to a physical device handle in which the
  *     resulting physical device is returned 
  */
-void _vk_select_suitable_physical_device(VkInstance instance,
-        OUT VkPhysicalDevice *physical_device)
-{
-    // TODO: VkPhysicalDeviceLimits?
-    // TODO: Depth buffer capabilities?
-
+void _vk_select_suitable_physical_device(
+    VkInstance instance,
+    OUT VkPhysicalDevice *physical_device
+){
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, 0);
+    if (device_count == 0)
+        FATAL_ERROR("No Vulkan devices detected!");
+
     VkPhysicalDevice *devices = malloc(device_count * sizeof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(instance, &device_count, devices);
+
+    *physical_device = devices[0];
 
     for (uint32_t i = 0; i < device_count; i++) {
         VkPhysicalDevice device_check = devices[i];
 
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(device_check, &properties);
-
-        // Prefer dedicated GPUs
-        if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-            continue;
-
-        *physical_device = device_check;
-        goto search_complete;
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            *physical_device = device_check;
+            break;
+        }
     }
 
-    // Fallback if nothing else works
-    *physical_device = devices[0];
-
-search_complete:
     free(devices);
 }
 
@@ -93,9 +90,11 @@ search_complete:
  * @param surface Pointer to Vulkan surface handle in which the resulting handle
  *     is returned
  */
-void _vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
-        OUT VkSurfaceKHR *surface)
-{
+void _vk_initialise_surface(
+    VkInstance instance,
+    struct vk_surface appsurface,
+    OUT VkSurfaceKHR *surface
+){
 #ifdef SLN_WIN64
     vk_win64(instance, appsurface, surface);
 #else
@@ -111,23 +110,26 @@ void _vk_initialise_surface(VkInstance instance, struct vk_surface appsurface,
  * @param queue_family Pointer to queue family in which resulting queue family
  *     information is returned
  */
-void _vk_select_suitable_queue_families(VkPhysicalDevice physical_device,
-        VkSurfaceKHR surface, OUT union vk_queue_family *queue_family)
-{
+void _vk_select_suitable_queue_families(
+    VkPhysicalDevice pd,
+    VkSurfaceKHR surface,
+    OUT union vk_queue_family *queue_family
+){
     uint32_t family_count;
-    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, 0);
-    VkQueueFamilyProperties *properties =
-            malloc(family_count * sizeof(VkQueueFamilyProperties));
-    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count,
-            properties);
+    vkGetPhysicalDeviceQueueFamilyProperties(pd, &family_count, 0);
+    if (family_count == 0)
+        FATAL_ERROR("No queue families found on device!");
+
+    uint64_t size = family_count * sizeof(VkQueueFamilyProperties);
+    VkQueueFamilyProperties *properties = malloc(size);
+    vkGetPhysicalDeviceQueueFamilyProperties(pd, &family_count, properties);
 
     for (uint32_t i = 0; i < family_count; i++) {
         if (properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
             queue_family->type.graphics = i;
 
         VkBool32 present_support;
-        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface,
-                &present_support);
+        vkGetPhysicalDeviceSurfaceSupportKHR(pd, i, surface, &present_support);
         if (present_support)
             queue_family->type.present = i;
     }
@@ -142,14 +144,15 @@ void _vk_select_suitable_queue_families(VkPhysicalDevice physical_device,
  * @param qf Queue families to use when creating device
  * @param device Returns the handle to the created device
  */
-void _vk_create_device(VkPhysicalDevice physical_device,
-        union vk_queue_family qf, OUT VkDevice *device)
-{
-    float queue_priority = 1;
+void _vk_create_device(
+    VkPhysicalDevice pd,
+    union vk_queue_family qf,
+    OUT VkDevice *device
+){
+    uint32_t size = SIZEOF_ARRAY(qf.families) * sizeof(VkDeviceQueueCreateInfo);
+    VkDeviceQueueCreateInfo *queue_info = calloc(1, size);
 
-    uint32_t total_size =
-            SIZEOF_ARRAY(qf.families) * sizeof(VkDeviceQueueCreateInfo);
-    VkDeviceQueueCreateInfo *queue_info = calloc(1, total_size);
+    float queue_priority = 1;
 
     for (uint32_t i = 0; i < SIZEOF_ARRAY(qf.families); i++) {
         queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -170,7 +173,7 @@ void _vk_create_device(VkPhysicalDevice physical_device,
     create_info.ppEnabledExtensionNames = extensions;
     create_info.pEnabledFeatures = 0;
 
-    vkCreateDevice(physical_device, &create_info, 0, device);
+    vkCreateDevice(pd, &create_info, 0, device);
 
     free(queue_info);
 }
@@ -182,9 +185,11 @@ void _vk_create_device(VkPhysicalDevice physical_device,
  * @param family Queue families to query
  * @param queues Union of command queues in which queues will be returned in
  */
-void _vk_get_queues(VkDevice device, union vk_queue_family family,
-        OUT union vk_queue *queues)
-{
+void _vk_get_queues(
+    VkDevice device,
+    union vk_queue_family family,
+    OUT union vk_queue *queues
+){
     for (uint32_t i = 0; i < VK_QUEUE_COUNT; i++)
         vkGetDeviceQueue(device, family.families[i], 0, &queues->queues[i]);
 }
@@ -192,60 +197,58 @@ void _vk_get_queues(VkDevice device, union vk_queue_family family,
 /**
  * @brief Select a suitable surface format to render on
  * 
- * @param physical_device Vulkan physical device
+ * @param pd Vulkan physical device
  * @param surface Vulkan surface
- * @param surface_format Handle to the surface format in which the chosen
+ * @param sf Handle to the surface format in which the chosen
  *     format is returned 
  */
-void _vk_select_suitable_surface_format(VkPhysicalDevice physical_device,
-        VkSurfaceKHR surface, OUT VkSurfaceFormatKHR *surface_format)
-{
-    uint32_t surface_format_count; 
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
-            &surface_format_count, 0);
+void _vk_select_suitable_surface_format(
+    VkPhysicalDevice pd,
+    VkSurfaceKHR surface,
+    OUT VkSurfaceFormatKHR *sf
+){
+    uint32_t sfc; 
+    vkGetPhysicalDeviceSurfaceFormatsKHR(pd, surface, &sfc, 0);
+    if (sfc == 0)
+        FATAL_ERROR("No surface formats found!");
 
-    VkSurfaceFormatKHR *surface_formats =
-            malloc(surface_format_count * sizeof(VkSurfaceFormatKHR));
+    VkSurfaceFormatKHR *sfs = malloc(sfc * sizeof(VkSurfaceFormatKHR));
+    vkGetPhysicalDeviceSurfaceFormatsKHR(pd, surface, &sfc, sfs);
 
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
-            &surface_format_count, surface_formats);
+    *sf = sfs[0];
 
-    for (uint32_t i = 0; i < surface_format_count; i++) {
-        VkSurfaceFormatKHR format_check = surface_formats[i];
+    for (uint32_t i = 0; i < sfc; i++) {
+        VkSurfaceFormatKHR format_check = sfs[i];
         uint8_t colour_check = format_check.format == VK_FORMAT_R8G8B8A8_SRGB
-                && format_check.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+            && format_check.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
         if (colour_check) {
-            *surface_format = format_check;
-            goto complete;
+            *sf = format_check;
+            break;
         }
     }
 
-    // Fallback surface format
-    *surface_format = surface_formats[0];
-
-complete:
-    free(surface_formats);
+    free(sfs);
 }
 
 /**
  * @brief Calculate a suitable width and height for the viewport and scissors
- * 
- * @param physical_device Vulkan physical device
- * @param surface Vulkan surface
+ *  TODO:
  * @param extent Returns the extent details
  */
-void _vk_calculate_extent(VkPhysicalDevice physical_device,
-        VkSurfaceKHR surface, OUT VkExtent2D *extent)
-{
+void _vk_calculate_extent(
+    VkPhysicalDevice pd,
+    VkSurfaceKHR surface,
+    OUT VkExtent2D *extent
+){
     VkSurfaceCapabilitiesKHR surface_caps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface,
-            &surface_caps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pd, surface, &surface_caps);
 
     extent->width = min(surface_caps.maxImageExtent.width,
-            max(SLN_WINDOW_WIDTH, surface_caps.minImageExtent.width));
+            max(VK_FRAMEBUFFER_WIDTH, surface_caps.minImageExtent.width));
 
     extent->height = min(surface_caps.maxImageExtent.height,
-            max(SLN_WINDOW_HEIGHT, surface_caps.minImageExtent.height));
+            max(VK_FRAMEBUFFER_HEIGHT, surface_caps.minImageExtent.height));
 }
 
 /**
@@ -258,10 +261,14 @@ void _vk_calculate_extent(VkPhysicalDevice physical_device,
  * @param families Queue families to use
  * @param swapchain Returns the created swapchain
  */
-void _vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
-        VkSurfaceFormatKHR surface_format, VkExtent2D extent,
-        union vk_queue_family families, OUT VkSwapchainKHR *swapchain)
-{
+void _vk_create_swapchain(
+    VkDevice device,
+    VkSurfaceKHR surface,
+    VkSurfaceFormatKHR surface_format,
+    VkExtent2D extent,
+    union vk_queue_family families,
+    OUT VkSwapchainKHR *swapchain
+){
     VkSwapchainCreateInfoKHR create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     create_info.surface = surface;
@@ -272,12 +279,17 @@ void _vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    if (families.type.graphics == families.type.present) {
+    uint32_t fams[] = {
+        families.type.graphics,
+        families.type.present
+    };
+
+    if (fams[0] == fams[1]) {
         create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     } else {
         create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        create_info.pQueueFamilyIndices = families.families;
-        create_info.queueFamilyIndexCount = SIZEOF_ARRAY(families.families);
+        create_info.pQueueFamilyIndices = fams;
+        create_info.queueFamilyIndexCount = SIZEOF_ARRAY(fams);
     }
 
     create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -295,31 +307,32 @@ void _vk_create_swapchain(VkDevice device, VkSurfaceKHR surface,
  * @param surface_format Vulkan surface format
  * @param render_pass Returns the created render pass
  */
-void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
-        OUT VkRenderPass *render_pass)
-{
-    VkAttachmentDescription attachment[2] = {0};
+void _vk_create_render_pass(
+    VkDevice device,
+    VkSurfaceFormatKHR surface_format,
+    OUT VkRenderPass *render_pass
+){
+    VkAttachmentDescription att[2] = {0};
     
     // Colour
-    attachment[0].format = surface_format.format;
-    attachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    att[0].format = surface_format.format;
+    att[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    att[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    att[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    att[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    att[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    att[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
      // Depth stencil
-    attachment[1].format = VK_FORMAT_D32_SFLOAT;  // TODO: check capabilities
-    attachment[1].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachment[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachment[1].finalLayout =
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    att[1].format = VK_FORMAT_D32_SFLOAT;  // TODO: check capabilities
+    att[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    att[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    att[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    att[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    att[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colour_reference = {0};
     colour_reference.attachment = 0;
@@ -339,19 +352,19 @@ void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
     dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-            | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    create_info.attachmentCount = SIZEOF_ARRAY(attachment);
-    create_info.pAttachments = attachment;
+    create_info.attachmentCount = SIZEOF_ARRAY(att);
+    create_info.pAttachments = att;
     create_info.subpassCount = 1;
     create_info.pSubpasses = &subpass;
     create_info.dependencyCount = 1;
@@ -367,8 +380,10 @@ void _vk_create_render_pass(VkDevice device, VkSurfaceFormatKHR surface_format,
  * @param families Queue families
  * @param command_pool Returns the created command pool
  */
-void _vk_create_command_pool(VkDevice device, union vk_queue_family families,
-        VkCommandPool *command_pool)
+void _vk_create_command_pool(
+    VkDevice device,
+    union vk_queue_family families,
+    VkCommandPool *command_pool)
 {
     VkCommandPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -385,9 +400,11 @@ void _vk_create_command_pool(VkDevice device, union vk_queue_family families,
  * @param command_pool Vulkan command pool
  * @param command_buffer Returns the created command buffer
  */
-void _vk_create_command_buffer(VkDevice device, VkCommandPool command_pool,
-        VkCommandBuffer *command_buffer)
-{
+void _vk_create_command_buffer( // TODO: transfer command buffer??
+    VkDevice device,
+    VkCommandPool command_pool,
+    VkCommandBuffer *command_buffer
+){
     VkCommandBufferAllocateInfo allocate_info = {0};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocate_info.commandPool = command_pool;
@@ -395,34 +412,6 @@ void _vk_create_command_buffer(VkDevice device, VkCommandPool command_pool,
     allocate_info.commandBufferCount = 1;
 
     vkAllocateCommandBuffers(device, &allocate_info, command_buffer);
-}
-
-/**
- * @brief Creates an image view for the passed image
- * 
- * @param device Vulkan device
- * @param image Image to use
- * @param format Swapchain colour format
- * @param flags Flags to do with how the image should be viewed
- * @param view Returns the created image view
- */
-void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
-        VkImageAspectFlags flags, VkImageView *view)
-{
-    VkImageViewCreateInfo create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image = image;
-    create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format = format;
-    create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.subresourceRange.aspectMask = flags;
-    create_info.subresourceRange.levelCount = 1;
-    create_info.subresourceRange.layerCount = 1;
-
-    vkCreateImageView(device, &create_info, 0, view);
 }
 
 /**
@@ -435,12 +424,18 @@ void _vk_get_image_view(VkDevice device, VkImage image, VkFormat format,
  * @param depth_view Depth buffer view
  * @param framebuffer Returns the framebuffer
  */
-void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
-        VkRenderPass render_pass, VkImageView colour_view,
-        VkImageView depth_view,
-        OUT VkFramebuffer *framebuffer)
-{
-    VkImageView view[] = {colour_view, depth_view};
+void _vk_create_framebuffer(
+    VkDevice device,
+    VkExtent2D extent,
+    VkRenderPass render_pass,
+    VkImageView colour_view,
+    VkImageView depth_view,
+    OUT VkFramebuffer *framebuffer
+){
+    VkImageView view[] = {
+        colour_view,
+        depth_view
+    };
 
     VkFramebufferCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -461,13 +456,14 @@ void _vk_create_framebuffer(VkDevice device, VkExtent2D extent,
  * @param physical_device Vulkan physical device
  * @return struct vk_image 
  */
-struct vk_image _vk_create_depth_buffer(VkDevice device,
-        VkPhysicalDevice physical_device)
-{
-    return vk_create_image(device, physical_device, VK_FORMAT_D32_SFLOAT,
-            SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+struct vk_image _vk_create_depth_buffer(
+    VkDevice device,
+    VkPhysicalDevice pd
+){
+    return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
+        VK_FRAMEBUFFER_WIDTH, VK_FRAMEBUFFER_HEIGHT,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 /**
@@ -481,31 +477,35 @@ struct vk_image _vk_create_depth_buffer(VkDevice device,
  * @param render_pass Vulkan render pass
  * @param framebuffers Returns the created framebuffer information
  */
-void _vk_get_swapchain_images(VkDevice device, VkPhysicalDevice physical_device,
-        VkSwapchainKHR swapchain, VkSurfaceFormatKHR surface_format,
-        VkExtent2D extent, VkRenderPass render_pass,
-        struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT])
-{
+void _vk_get_swapchain_images(
+    VkDevice device,
+    VkPhysicalDevice pd,
+    VkSwapchainKHR swapchain,
+    VkSurfaceFormatKHR surface_format,
+    VkExtent2D extent,
+    VkRenderPass render_pass,
+    struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT]
+){
     uint32_t image_count;
     vkGetSwapchainImagesKHR(device, swapchain, &image_count, 0);
+    if (image_count != SLN_FRAMEBUFFER_COUNT)
+        FATAL_ERROR("Could not create double framebuffer!");
+
     VkImage *images = malloc(image_count * sizeof(VkImage));
     vkGetSwapchainImagesKHR(device, swapchain, &image_count, images);
 
-    struct vk_image depth_image = _vk_create_depth_buffer(device,
-            physical_device);
+    struct vk_image depth_image = _vk_create_depth_buffer(device, pd);
 
     VkImageView depth_view;
     _vk_get_image_view(device, depth_image.image, VK_FORMAT_D32_SFLOAT,
-            VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
+        VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
 
-    for (uint32_t i = 0; i < image_count
-        && i < SLN_FRAMEBUFFER_COUNT; i++) {
+    for (uint32_t i = 0; i < SLN_FRAMEBUFFER_COUNT; i++) {
         _vk_get_image_view(device, images[i], surface_format.format,
-                VK_IMAGE_ASPECT_COLOR_BIT, &framebuffers[i].view);
+            VK_IMAGE_ASPECT_COLOR_BIT, &framebuffers[i].view);
 
-        _vk_create_framebuffer(device, extent,
-                render_pass, framebuffers[i].view, depth_view,
-                &framebuffers[i].framebuffer);
+        _vk_create_framebuffer(device, extent, render_pass,
+            framebuffers[i].view, depth_view, &framebuffers[i].framebuffer);
     }
 
     free(images);
@@ -517,8 +517,10 @@ void _vk_get_swapchain_images(VkDevice device, VkPhysicalDevice physical_device,
  * @param device Vulkan device
  * @param semaphore Returns the created semaphore
  */
-void _vk_create_semaphore(VkDevice device, OUT VkSemaphore *semaphore)
-{
+void _vk_create_semaphore(
+    VkDevice device,
+    OUT VkSemaphore *semaphore
+){
     VkSemaphoreCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -531,8 +533,10 @@ void _vk_create_semaphore(VkDevice device, OUT VkSemaphore *semaphore)
  * @param device Vulkan device
  * @param fence Returns the created fence
  */
-void _vk_create_fence(VkDevice device, VkFence *fence)
-{
+void _vk_create_fence(
+    VkDevice device,
+    VkFence *fence
+){
     VkFenceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -547,57 +551,85 @@ void _vk_create_fence(VkDevice device, VkFence *fence)
  * @param surface Applicaton surface
  * @return struct vk_state A structure containing Vulkan information.
  */
-struct vk_state vk_init(struct vk_surface surface)
-{
-    struct vk_state state = {0};
+struct vk_state vk_init(
+    struct vk_surface surface
+){
+    struct vk_state s = {0};
 
-    _vk_create_instance(&state.instance);
+    _vk_create_instance(&s.instance);
 
 #ifdef SLN_DEBUG
-    _vk_create_debug_messenger(state.instance, &state.debug_messenger);
+    _vk_create_debug_messenger(s.instance, &s.debug_messenger);
 #endif
 
-    _vk_select_suitable_physical_device(state.instance, &state.physical_device);
-    _vk_initialise_surface(state.instance, surface, &state.surface);
-    _vk_select_suitable_queue_families(state.physical_device, state.surface,
-            &state.queue_family);
+    _vk_select_suitable_physical_device(s.instance, &s.physical_device);
+    _vk_initialise_surface(s.instance, surface, &s.surface);
+    _vk_select_suitable_queue_families(s.physical_device, s.surface,
+        &s.queue_family);
 
-    _vk_create_device(state.physical_device, state.queue_family, &state.device);
-    _vk_get_queues(state.device, state.queue_family, &state.queue);
-    _vk_select_suitable_surface_format(state.physical_device, state.surface,
-            &state.surface_format);
+    _vk_create_device(s.physical_device, s.queue_family, &s.device);
+    _vk_get_queues(s.device, s.queue_family, &s.queue);
+    _vk_select_suitable_surface_format(s.physical_device, s.surface,
+        &s.surface_format);
 
-    _vk_calculate_extent(state.physical_device, state.surface, &state.extent);
-    _vk_create_swapchain(state.device, state.surface, state.surface_format,
-            state.extent, state.queue_family, &state.swapchain);
+    _vk_calculate_extent(s.physical_device, s.surface, &s.extent);
+    _vk_create_swapchain(s.device, s.surface, s.surface_format, s.extent,
+        s.queue_family, &s.swapchain);
 
-    _vk_create_render_pass(state.device, state.surface_format,
-            &state.render_pass);
+    _vk_create_render_pass(s.device, s.surface_format, &s.render_pass);
+    _vk_create_command_pool(s.device, s.queue_family, &s.command_pool);
+    _vk_create_command_buffer(s.device, s.command_pool, &s.command_buffer);
 
-    _vk_create_command_pool(state.device, state.queue_family,
-            &state.command_pool);
+    _vk_get_swapchain_images(s.device, s.physical_device, s.swapchain,
+        s.surface_format, s.extent, s.render_pass, s.framebuffers);
 
-    _vk_create_command_buffer(state.device, state.command_pool,
-            &state.command_buffer);
+    _vk_create_semaphore(s.device, &s.image_ready_semaphore);
+    _vk_create_semaphore(s.device, &s.render_ready_semaphore);
+    _vk_create_fence(s.device, &s.render_ready_fence);
 
-    _vk_get_swapchain_images(state.device, state.physical_device,
-            state.swapchain, state.surface_format, state.extent,
-            state.render_pass, state.framebuffers);
+    _vk_create_sampler(s.device, &s.sampler);
 
-    _vk_create_semaphore(state.device, &state.image_ready_semaphore);
-    _vk_create_semaphore(state.device, &state.render_ready_semaphore);
-    _vk_create_fence(state.device, &state.render_ready_fence);
+    _vk_create_descriptor_pool(s.device, &s.pool);
+
+    _vk_create_descriptor_set_layout0(s.device, &s.set_layout[0]);
+    _vk_create_descriptor_set_layout1(s.device, &s.set_layout[1]);
+
+    _vk_allocate_descriptor_sets(s.device, s.pool, &s.set_layout[0],
+        1, &s.descriptor_set);
+
+    s.uniform_buffer0 = vk_create_uniform_buffer(s.device, s.physical_device,
+        sizeof(struct vk_uniform_buffer0));
+
+    s.uniform_buffer1 = vk_create_uniform_buffer(s.device, s.physical_device,
+        sizeof(struct vk_uniform_buffer1));
+
+    _vk_update_descriptor_set0(s.device, s.uniform_buffer0.buffer.buffer,
+        s.uniform_buffer1.buffer.buffer, s.descriptor_set);
+
+    _vk_create_pipeline_layout(s.device, s.set_layout,
+        SIZEOF_ARRAY(s.set_layout), &s.pipeline_layout);
+
+#if 0
+    // Texture TODO:
+    struct sln_file img = sln_read_file("image.simg", 1);
+
+    s.texture = vk_create_texture(s.device, s.physical_device,
+        s.command_pool, s.queue.type.graphics, (void *)((uint64_t)img.data + 8),
+        img.size, 94, 83, s.sampler, s.pool, s.set_layout[1]);
+
+    sln_close_file(img);
+#endif
 
     // Load shader
     struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
     struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
 
-    state.shader = vk_create_shader(state.device, state.physical_device,
-        state.render_pass, vertex_file.data, vertex_file.allocated_size,
-        fragment_file.data, fragment_file.allocated_size);
+    s.shader = vk_create_shader(s.device, s.render_pass, vertex_file.data,
+        vertex_file.allocated_size, fragment_file.data,
+        fragment_file.allocated_size, s.pipeline_layout);
         
     sln_close_file(vertex_file);
     sln_close_file(fragment_file);
 
-    return state;
+    return s;
 }

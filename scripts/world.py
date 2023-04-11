@@ -16,10 +16,12 @@ data = json.loads(inputfile.read())
 
 outputfile.write(array("b", [0x53, 0x57, 0, 0]))
 outputfile.write(array("i", [len(data["models"])]))
+outputfile.write(array("i", [len(data["textures"])]))
 outputfile.write(array("i", [len(data["objects"])]))
 outputfile.write(array("i", [len(data["point-cuboids"])]))
 
 models = []
+textures = []
 
 for index, model in enumerate(data["models"]):
     name = model["name"]
@@ -32,15 +34,27 @@ for index, model in enumerate(data["models"]):
 
     models.append(name)
 
+for index, texture in enumerate(data["textures"]):
+    name = texture["name"]
+    file = texture["file"]
+
+    zero_count = 20 - len(file)
+
+    outputfile.write(array("b", file.encode()))
+    outputfile.write(array("b", [0] * zero_count))
+
+    textures.append(name)
+
 for object in data["objects"]:
     model_index = models.index(object["model"])
+    texture_index = textures.index(object["texture"])
     position = object.get("position", [0, 0, 0])
     rotation = object.get("rotation", [0, 0, 0])
     scale = object.get("scale", [1, 1, 1])
 
     rotation = [math.radians(x) for x in rotation]
 
-    outputfile.write(array("i", [model_index]))
+    outputfile.write(array("i", [model_index, texture_index]))
     outputfile.write(array("f", position))
     outputfile.write(array("f", rotation))
     outputfile.write(array("f", scale))

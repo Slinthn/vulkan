@@ -7,19 +7,19 @@ void rawinput_parse_keyboard_data(struct user_controls *control, RAWINPUT *data)
 
     switch (key) {
     case 'W': {
-        control->move.c.y = (float)-down;
+        control->keypress[0] = down;
     } break;
 
     case 'S': {
-        control->move.c.y = down;
+        control->keypress[2] = down;
     } break;
 
     case 'D': {
-        control->move.c.x = down;
+        control->keypress[3] = down;
     } break;
 
     case 'A': {
-        control->move.c.x = (float)-down;
+        control->keypress[1] = down;
     } break;
     
     case VK_SHIFT: {
@@ -36,4 +36,19 @@ void rawinput_parse_keyboard_data(struct user_controls *control, RAWINPUT *data)
             control->actions ^= ACTION_ASCEND;
     } break;
     }
+
+    control->move.c.x = 0;
+    control->move.c.y = 0;
+
+    if (control->keypress[0] != control->keypress[2])
+        if (control->keypress[0])
+            control->move.c.y = -1;
+        else if (control->keypress[2])
+            control->move.c.y = 1;
+
+    if (control->keypress[1] != control->keypress[3])
+        if (control->keypress[1])
+            control->move.c.x = -1;
+        else if (control->keypress[3])
+            control->move.c.x = 1;
 }

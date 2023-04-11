@@ -1,6 +1,10 @@
 #ifdef SLN_VULKAN
 
 #define VK_QUEUE_COUNT 2
+#define VK_POOL_SIZE 1000
+
+#define VK_FRAMEBUFFER_WIDTH 1280
+#define VK_FRAMEBUFFER_HEIGHT 720
 
 union vk_queue_family {
     struct {
@@ -46,9 +50,6 @@ struct vk_model {
 
 struct vk_shader {
     VkPipeline pipeline;
-    VkPipelineLayout pipeline_layout;
-    VkDescriptorSet descriptor_set;
-    struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
 };
 
 #pragma pack(push, 1)
@@ -78,6 +79,12 @@ struct vk_image {
     VkDeviceMemory memory;
 };
 
+struct vk_texture {
+    struct vk_image image;
+    VkImageView image_view;
+    VkDescriptorSet set;
+};
+
 #pragma pack(push, 1)
 struct vk_vertex {
     union vector3 position;
@@ -105,10 +112,18 @@ struct vk_state {
     struct vk_shader shader;
     uint32_t current_image_index;
     uint32_t unused0;
+    VkSampler sampler;
 
 #ifdef SLN_DEBUG
     VkDebugUtilsMessengerEXT debug_messenger;
 #endif
+
+    VkDescriptorPool pool;
+    VkPipelineLayout pipeline_layout;
+    VkDescriptorSetLayout set_layout[2];
+    VkDescriptorSet descriptor_set;
+    struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
+    struct vk_texture texture;
 };
 
 #ifdef SLN_WIN64

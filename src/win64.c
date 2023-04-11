@@ -7,6 +7,10 @@
 #include <stdio.h>
 #pragma warning(pop)
 
+#define FATAL_ERROR(x) { \
+    MessageBoxExA(0, x, "FATAL ERROR", MB_OK | MB_ICONERROR, 0); \
+    ExitProcess(1); }
+
 #include "macros.c"
 #include "math/math.h"
 #include "rawinput/rawinput.h"

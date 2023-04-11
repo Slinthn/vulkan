@@ -36,16 +36,18 @@ void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
  * @param viewport_height Viewport height
  */
 void vk_render_begin(struct vk_state *state, float clear_color[4],
-        struct vk_uniform_buffer0 *buffer0, struct vk_uniform_buffer1 *buffer1,
-        uint32_t viewport_width, uint32_t viewport_height)
-{
+    struct vk_uniform_buffer0 *buffer0,
+    struct vk_uniform_buffer1 *buffer1,
+    uint32_t viewport_width,
+    uint32_t viewport_height
+){
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
-            UINT64_MAX);
+        UINT64_MAX);
     vkResetFences(state->device, 1, &state->render_ready_fence);
 
     vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX,
-            state->image_ready_semaphore, VK_NULL_HANDLE,
-            &state->current_image_index);
+        state->image_ready_semaphore, VK_NULL_HANDLE,
+        &state->current_image_index);
 
     VkCommandBufferBeginInfo begin_info = {0};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -65,31 +67,28 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = state->render_pass;
     render_pass_info.framebuffer =
-            state->framebuffers[state->current_image_index].framebuffer;
-
+        state->framebuffers[state->current_image_index].framebuffer;
     render_pass_info.renderArea.offset.x = 0;
     render_pass_info.renderArea.offset.y = 0;
     render_pass_info.renderArea.extent = state->extent;
-    //render_pass_info.renderArea.extent.width /= 2;  // TODO:
-    //render_pass_info.renderArea.extent.height /= 2;  // TODO:
     render_pass_info.clearValueCount = SIZEOF_ARRAY(clear_value);
     render_pass_info.pClearValues = clear_value;
 
     vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
-            VK_SUBPASS_CONTENTS_INLINE);
+        VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            state->shader.pipeline);
+        state->shader.pipeline);
 
     vkCmdBindDescriptorSets(state->command_buffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS, state->shader.pipeline_layout, 0,
-            1, &state->shader.descriptor_set, 0, 0);
+        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 0,
+        1, &state->descriptor_set, 0, 0);
 
-    vk_update_uniform_buffer(state->shader.uniform_buffer0, buffer0);
-    vk_update_uniform_buffer(state->shader.uniform_buffer1, buffer1);
+    vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
+    vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
 
     vk_render_set_viewport(state->command_buffer, viewport_width,
-            viewport_height);
+        viewport_height);
 }
 
 /**
@@ -97,8 +96,9 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
  * 
  * @param state Vulkan state
  */
-void vk_render_end(struct vk_state state)
-{
+void vk_render_end(
+    struct vk_state state
+){
     vkCmdEndRenderPass(state.command_buffer);
     vkEndCommandBuffer(state.command_buffer);
 
@@ -111,8 +111,8 @@ void vk_render_end(struct vk_state state)
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &state.render_ready_semaphore;
 
-    vkQueueSubmit(state.queue.type.graphics, 1,
-            &submit_info, state.render_ready_fence);
+    vkQueueSubmit(state.queue.type.graphics, 1, &submit_info,
+        state.render_ready_fence);
 
     VkPresentInfoKHR present_info = {0};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -126,25 +126,32 @@ void vk_render_end(struct vk_state state)
 }
 
 /**
- * @brief Draw a model
+ * @brief Draw a model TODO:
  * 
  * @param model Model to draw
  * @param constant Push constant to apply to this draw call
  */
-void sln_draw_model(struct vk_state *state, struct vk_model model,
-        struct vk_push_constant0 *constant)
-{
+void sln_draw_model(
+    struct vk_state *state,
+    struct vk_model model,
+    struct vk_texture texture,
+    struct vk_push_constant0 *constant
+){
     VkDeviceSize offsets[1] = {0};
     vkCmdBindVertexBuffers(state->command_buffer, 0, 1,
         &model.vertex_buffer.buffer, offsets);
 
     vkCmdBindIndexBuffer(state->command_buffer,
-            model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdPushConstants(state->command_buffer, state->shader.pipeline_layout,
-            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
-            constant);
+    vkCmdPushConstants(state->command_buffer, state->pipeline_layout,
+        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
+        constant);
+
+    vkCmdBindDescriptorSets(state->command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
+        1, &texture.set, 0, 0);
 
     vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
-            0, 0, 0);
+        0, 0, 0);
 }

@@ -10,8 +10,17 @@ struct sm_header {
 struct sw_header {
     uint8_t signature[4];
     uint32_t model_count;
+    uint32_t texture_count;
     uint32_t object_count;
     uint32_t point_cuboid_count;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct simg_header {
+    uint8_t signature[4];
+    uint32_t width;
+    uint32_t height;
 };
 #pragma pack(pop)
 
@@ -22,14 +31,20 @@ struct sw_model {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+struct sw_texture {
+    char filename[20];
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
 struct sw_object {
-    uint32_t index;
+    uint32_t model_index;
+    uint32_t texture_index;
     float position[3];
     float rotation[3];
     float scale[3];
 };
 #pragma pack(pop)
-
 
 #pragma pack(push, 1)
 struct sw_point_cuboid {
@@ -42,15 +57,18 @@ struct sw_point_cuboid {
 
 struct sln_object {
     uint32_t model_index;
-    uint32_t flags;
+    uint32_t texture_index;
+    uint64_t flags;
     struct transform transform;
 };
 
 struct sln_world {
     struct vk_model models[100];  // TODO: random number
+    struct vk_texture textures[100];  // TODO: random number
     struct sln_object objects[1000];  // TODO: random number
     struct physics_world physics;
 };
 
 #include "model.c"
+#include "texture.c"
 #include "world.c"

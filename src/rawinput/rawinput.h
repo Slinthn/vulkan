@@ -1,6 +1,6 @@
-#define ACTION_JUMP (0x1)
-#define ACTION_DESCEND (0x2)
-#define ACTION_ASCEND (0x4)
+#define ACTION_JUMP 0x1
+#define ACTION_DESCEND 0x2
+#define ACTION_ASCEND 0x4
 
 #pragma pack(push, 1)
 struct rawinput_dualshock4 {
@@ -21,6 +21,8 @@ struct user_controls {
   union vector2 look;
   uint64_t actions;
   uint64_t is_controller;
+  uint8_t keypress[4];
+  uint32_t unused0;
 };
 
 #include "keyboard.c"
