@@ -52,6 +52,10 @@ for object in data["objects"]:
     rotation = object.get("rotation", [0, 0, 0])
     scale = object.get("scale", [1, 1, 1])
 
+    position[1], position[2] = -position[2], position[1]  # Vulkan
+    rotation[1], rotation[2] = -rotation[2], rotation[1]  # Vulkan
+    scale[1], scale[2] = -scale[2], scale[1]  # Vulkan
+
     rotation = [math.radians(x) for x in rotation]
 
     outputfile.write(array("i", [model_index, texture_index]))
@@ -61,7 +65,9 @@ for object in data["objects"]:
 
 for cb in data["point-cuboids"]:
     centre = cb.get("centre", [0, 0, 0])
+    centre[1], centre[2] = -centre[2], centre[1]  # Vulkan
     dimension = cb.get("dimension", [0, 0, 0])
+    dimension[1], dimension[2] = dimension[2], dimension[1]  # Vulkan
 
     outputfile.write(array("f", centre))
     outputfile.write(array("f", dimension))

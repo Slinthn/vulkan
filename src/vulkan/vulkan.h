@@ -54,13 +54,13 @@ struct vk_shader {
 
 #pragma pack(push, 1)
 struct vk_uniform_buffer0 {
-    union matrix4 projection, view;
+    union matrix4 projection, view, camera_projection, camera_view;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 struct vk_uniform_buffer1 {
-    union matrix4 model[100];
+    union matrix4 model[100];  // TODO: random number
 };
 #pragma pack(pop)
 
@@ -120,10 +120,17 @@ struct vk_state {
 
     VkDescriptorPool pool;
     VkPipelineLayout pipeline_layout;
-    VkDescriptorSetLayout set_layout[2];
+    VkDescriptorSetLayout set_layout[3];
     VkDescriptorSet descriptor_set;
     struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
     struct vk_texture texture;
+
+    // TODO: shadow
+    struct vk_image depth_image;
+    VkDescriptorSet shadow_set;
+    VkPipeline shadow_pipeline;
+    VkFramebuffer shadow_framebuffer;
+    VkRenderPass shadow_render_pass;
 };
 
 #ifdef SLN_WIN64
@@ -131,7 +138,6 @@ struct vk_state {
 #endif  // SLN_WIN64
 
 #include "vulkan_buffer.c"
-#include "vulkan_render.c"
 #include "vulkan_shader.c"
 
 #ifdef SLN_DEBUG
@@ -139,6 +145,7 @@ struct vk_state {
 #endif  // SLN_DEBUG
 
 #include "vulkan_image.c"
+#include "vulkan_render.c"
 #include "vulkan.c"
 
 #endif  // SLN_VULKAN

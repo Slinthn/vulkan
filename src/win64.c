@@ -32,17 +32,21 @@ struct sln_app {
  * @param lparam Second parameter
  * @return LRESULT Return code
  */
-LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
-{
+LRESULT win_message_proc(
+    HWND window,
+    UINT msg,
+    WPARAM wparam,
+    LPARAM lparam
+){
     struct sln_app *state =
-            (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
+        (struct sln_app *)GetWindowLongPtrA(window, GWLP_USERDATA);
 
     switch (msg) {
     case WM_CREATE: {
         // Set the windows state variable pointer as userdata in the window
         CREATESTRUCT *createstruct = (CREATESTRUCT *)lparam;
         SetWindowLongPtrA(window, GWLP_USERDATA,
-                (LONG_PTR)createstruct->lpCreateParams);
+            (LONG_PTR)createstruct->lpCreateParams);
 
         return 1;
     }
@@ -71,8 +75,9 @@ LRESULT win_message_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
  * @param param Pointer to a sln_app structure
  * @return DWORD Return code
  */
-DWORD win_game_loop(void *param)
-{
+DWORD win_game_loop(
+    void *param
+){
     struct sln_app *app = (struct sln_app *)param;
 
     uint64_t counter;
@@ -89,6 +94,8 @@ DWORD win_game_loop(void *param)
         QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
 
         fps++;
+
+#ifdef SLN_DEBUG
         if ((new_counter - counter) / frequency >= 1) {
             char buffer[64];
 
@@ -99,6 +106,7 @@ DWORD win_game_loop(void *param)
             QueryPerformanceCounter((LARGE_INTEGER *)&counter);
         }
     }
+#endif  // SLN_DEBUG
 }
 
 
@@ -111,9 +119,12 @@ DWORD win_game_loop(void *param)
  * @param show Show mode (in exe properties)
  * @return int Return code
  */
-int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
-        LPSTR cmd, int show)
-{
+int APIENTRY WinMain(
+    HINSTANCE hinstance,
+    HINSTANCE prev_hinstance,
+    LPSTR cmd,
+    int show
+){
     // Suppress warnings
     (void)prev_hinstance;
     (void)cmd;
@@ -132,8 +143,8 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
     RegisterClassExA(&wc);
 
     surface.hwnd = CreateWindowExA(0, wc.lpszClassName, "App",
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
-            SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
+        SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
 
     rawinput_init(surface.hwnd);
     sln_init(surface);
@@ -150,8 +161,7 @@ int APIENTRY WinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
         // Not to overload window messages
         Sleep(16);
     
-        if (!app.controls.is_controller) {
+        if (!app.controls.is_controller)
             app.controls.look = (union vector2){0};
-        }
     }
 }

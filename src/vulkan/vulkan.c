@@ -275,7 +275,8 @@ void _vk_create_swapchain(
     create_info.minImageCount = SLN_FRAMEBUFFER_COUNT;
     create_info.imageFormat = surface_format.format;
     create_info.imageColorSpace = surface_format.colorSpace;
-    create_info.imageExtent = extent;
+    create_info.imageExtent.width = 1920;
+    create_info.imageExtent.height = 1080;  // TODO: goofy
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -308,6 +309,45 @@ void _vk_create_swapchain(
  * @param render_pass Returns the created render pass
  */
 void _vk_create_render_pass(
+    VkDevice device,
+    uint32_t attachment_count,
+    VkAttachmentDescription *attachments,
+    VkSubpassDescription *subpass,
+    OUT VkRenderPass *render_pass
+){
+    VkSubpassDependency dependency = {0};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+    dependency.srcAccessMask = 0;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+        | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    create_info.attachmentCount = attachment_count;
+    create_info.pAttachments = attachments;
+    create_info.subpassCount = 1;
+    create_info.pSubpasses = subpass;
+    create_info.dependencyCount = 1;
+    create_info.pDependencies = &dependency;
+
+    vkCreateRenderPass(device, &create_info, 0, render_pass);
+}
+
+/**
+ * @brief TODO:
+ * 
+ * @param device 
+ * @param surface_format 
+ * @param render_pass 
+ */
+void _vk_create_main_render_pass(
     VkDevice device,
     VkSurfaceFormatKHR surface_format,
     OUT VkRenderPass *render_pass
@@ -348,29 +388,35 @@ void _vk_create_render_pass(
     subpass.pColorAttachments = &colour_reference;
     subpass.pDepthStencilAttachment = &depth_reference;
 
-    VkSubpassDependency dependency = {0};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    _vk_create_render_pass(device, SIZEOF_ARRAY(att), att, &subpass,
+        render_pass);
+}
 
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+void _vk_create_shadow_render_pass(
+    VkDevice device,
+    OUT VkRenderPass *render_pass
+){
+     // Depth stencil
+    VkAttachmentDescription att = {0};
+    att.format = VK_FORMAT_D32_SFLOAT;  // TODO: check capabilities
+    att.samples = VK_SAMPLE_COUNT_1_BIT;
+    att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    att.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    dependency.srcAccessMask = 0;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-        | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    VkAttachmentReference depth_reference = {0};
+    depth_reference.attachment = 0;
+    depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    VkRenderPassCreateInfo create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    create_info.attachmentCount = SIZEOF_ARRAY(att);
-    create_info.pAttachments = att;
-    create_info.subpassCount = 1;
-    create_info.pSubpasses = &subpass;
-    create_info.dependencyCount = 1;
-    create_info.pDependencies = &dependency;
+    VkSubpassDescription subpass = {0};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 0;
+    subpass.pDepthStencilAttachment = &depth_reference;
 
-    vkCreateRenderPass(device, &create_info, 0, render_pass);
+    _vk_create_render_pass(device, 1, &att, &subpass, render_pass);
 }
 
 /**
@@ -415,7 +461,7 @@ void _vk_create_command_buffer( // TODO: transfer command buffer??
 }
 
 /**
- * @brief Create a Vulkan framebuffer
+ * @brief Create a Vulkan framebuffer TODO:
  * 
  * @param device Vulkan device
  * @param extent Dimensions of framebuffer
@@ -428,22 +474,17 @@ void _vk_create_framebuffer(
     VkDevice device,
     VkExtent2D extent,
     VkRenderPass render_pass,
-    VkImageView colour_view,
-    VkImageView depth_view,
+    uint32_t view_count,
+    VkImageView *views,
     OUT VkFramebuffer *framebuffer
 ){
-    VkImageView view[] = {
-        colour_view,
-        depth_view
-    };
-
     VkFramebufferCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     create_info.renderPass = render_pass;
-    create_info.attachmentCount = SIZEOF_ARRAY(view);
-    create_info.pAttachments = view;
-    create_info.width = extent.width;
-    create_info.height = extent.height;
+    create_info.attachmentCount = view_count;
+    create_info.pAttachments = views;
+    create_info.width = 1920;
+    create_info.height = 1080;  // TODO: goofy
     create_info.layers = 1;
 
     vkCreateFramebuffer(device, &create_info, 0, framebuffer);
@@ -463,6 +504,24 @@ struct vk_image _vk_create_depth_buffer(
     return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
         VK_FRAMEBUFFER_WIDTH, VK_FRAMEBUFFER_HEIGHT,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+}
+
+/**
+ * @brief Create a depth buffer
+ * 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @return struct vk_image 
+ */
+struct vk_image _vk_create_shadow_depth_buffer(
+    VkDevice device,
+    VkPhysicalDevice pd
+){
+    return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
+        100, 100,  // TODO: random numbers
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+        | VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
@@ -504,8 +563,13 @@ void _vk_get_swapchain_images(
         _vk_get_image_view(device, images[i], surface_format.format,
             VK_IMAGE_ASPECT_COLOR_BIT, &framebuffers[i].view);
 
+        VkImageView views[2] = {
+            framebuffers[i].view,
+            depth_view
+        };
+
         _vk_create_framebuffer(device, extent, render_pass,
-            framebuffers[i].view, depth_view, &framebuffers[i].framebuffer);
+            SIZEOF_ARRAY(views), views, &framebuffers[i].framebuffer);
     }
 
     free(images);
@@ -576,7 +640,7 @@ struct vk_state vk_init(
     _vk_create_swapchain(s.device, s.surface, s.surface_format, s.extent,
         s.queue_family, &s.swapchain);
 
-    _vk_create_render_pass(s.device, s.surface_format, &s.render_pass);
+    _vk_create_main_render_pass(s.device, s.surface_format, &s.render_pass);
     _vk_create_command_pool(s.device, s.queue_family, &s.command_pool);
     _vk_create_command_buffer(s.device, s.command_pool, &s.command_buffer);
 
@@ -593,6 +657,7 @@ struct vk_state vk_init(
 
     _vk_create_descriptor_set_layout0(s.device, &s.set_layout[0]);
     _vk_create_descriptor_set_layout1(s.device, &s.set_layout[1]);
+    s.set_layout[2] = s.set_layout[1];
 
     _vk_allocate_descriptor_sets(s.device, s.pool, &s.set_layout[0],
         1, &s.descriptor_set);
@@ -609,27 +674,44 @@ struct vk_state vk_init(
     _vk_create_pipeline_layout(s.device, s.set_layout,
         SIZEOF_ARRAY(s.set_layout), &s.pipeline_layout);
 
-#if 0
-    // Texture TODO:
-    struct sln_file img = sln_read_file("image.simg", 1);
-
-    s.texture = vk_create_texture(s.device, s.physical_device,
-        s.command_pool, s.queue.type.graphics, (void *)((uint64_t)img.data + 8),
-        img.size, 94, 83, s.sampler, s.pool, s.set_layout[1]);
-
-    sln_close_file(img);
-#endif
-
     // Load shader
     struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
     struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
+    struct sln_file shadow_vertex_file = sln_read_file("shadow-v.spv", 4);
+    struct sln_file shadow_fragment_file = sln_read_file("shadow-f.spv", 4);
 
     s.shader = vk_create_shader(s.device, s.render_pass, vertex_file.data,
         vertex_file.allocated_size, fragment_file.data,
         fragment_file.allocated_size, s.pipeline_layout);
-        
+
+    // TODO: tmp shadows
+    _vk_create_shadow_render_pass(s.device, &s.shadow_render_pass);
+
+    s.depth_image = _vk_create_shadow_depth_buffer(s.device,
+        s.physical_device);
+
+    VkImageView depth_view;
+    _vk_get_image_view(s.device, s.depth_image.image, VK_FORMAT_D32_SFLOAT,
+        VK_IMAGE_ASPECT_DEPTH_BIT, &depth_view);
+
+    VkExtent2D ex = {100, 100};  // TODO: random numbers
+
+    _vk_create_framebuffer(s.device, ex, s.shadow_render_pass,
+        1, &depth_view, &s.shadow_framebuffer);
+
+    s.shadow_pipeline = vk_create_shader(s.device, s.shadow_render_pass,
+        shadow_vertex_file.data,
+        shadow_vertex_file.allocated_size, shadow_fragment_file.data,
+        shadow_fragment_file.allocated_size, s.pipeline_layout).pipeline;
+
+    _vk_allocate_descriptor_sets(s.device, s.pool, &s.set_layout[2], 1,
+        &s.shadow_set);
+
+    _vk_update_descriptor_set1(s.device, s.sampler, depth_view, s.shadow_set);
+
     sln_close_file(vertex_file);
     sln_close_file(fragment_file);
+    sln_close_file(shadow_fragment_file);
 
     return s;
 }

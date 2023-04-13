@@ -4,9 +4,6 @@ layout(location=0) in vec3 position;
 layout(location=1) in vec3 normal;
 layout(location=2) in vec2 texture;
 
-layout(location=0) out vec2 tex;
-layout(location=1) out vec4 shadow_tex;
-
 layout(set=0, binding=0) uniform world_information {
     mat4 projection;
     mat4 view;
@@ -25,15 +22,8 @@ layout(push_constant) uniform object_index {
 void main(
     void
 ){
-    gl_Position = world.projection
-        * inverse(world.view)
-        * object.model[index.index]
-        * vec4(position.x, -position.y, position.z, 1);
-
-    shadow_tex = world.camera_projection
+    gl_Position = world.camera_projection
         * inverse(world.camera_view)
         * object.model[index.index]
         * vec4(position.x, -position.y, position.z, 1);
-
-    tex = texture;
 }

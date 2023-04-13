@@ -5,9 +5,11 @@
  * @param width Width of the viewport
  * @param height Height of the viewport
  */
-void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
-        uint32_t height)
-{
+void vk_render_set_viewport(
+    VkCommandBuffer command_buffer,
+    uint32_t width,
+    uint32_t height
+){
     VkViewport viewport = {0};
     viewport.x = 0;
     viewport.y = 0;
@@ -35,11 +37,10 @@ void vk_render_set_viewport(VkCommandBuffer command_buffer, uint32_t width,
  * @param viewport_width Viewport width
  * @param viewport_height Viewport height
  */
-void vk_render_begin(struct vk_state *state, float clear_color[4],
+void vk_render_begin(
+    struct vk_state *state,
     struct vk_uniform_buffer0 *buffer0,
-    struct vk_uniform_buffer1 *buffer1,
-    uint32_t viewport_width,
-    uint32_t viewport_height
+    struct vk_uniform_buffer1 *buffer1
 ){
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
         UINT64_MAX);
@@ -54,6 +55,25 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     
     vkResetCommandBuffer(state->command_buffer, 0);
     vkBeginCommandBuffer(state->command_buffer, &begin_info);
+
+    vkCmdBindDescriptorSets(state->command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 0,
+        1, &state->descriptor_set, 0, 0);
+
+    vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
+    vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
+}
+
+void vk_render_main(
+    struct vk_state *state,
+    float clear_color[4],
+    uint32_t viewport_width,
+    uint32_t viewport_height
+){
+    vkCmdEndRenderPass(state->command_buffer);
+
+    vk_render_set_viewport(state->command_buffer, viewport_width,
+        viewport_height);
 
     VkClearValue clear_value[2] = {0};
     clear_value[0].color.float32[0] = clear_color[0];
@@ -74,22 +94,45 @@ void vk_render_begin(struct vk_state *state, float clear_color[4],
     render_pass_info.clearValueCount = SIZEOF_ARRAY(clear_value);
     render_pass_info.pClearValues = clear_value;
 
-    vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
-        VK_SUBPASS_CONTENTS_INLINE);
-
     vkCmdBindPipeline(state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
         state->shader.pipeline);
 
-    vkCmdBindDescriptorSets(state->command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 0,
-        1, &state->descriptor_set, 0, 0);
+    _vk_transition_image(state->command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_ASPECT_DEPTH_BIT, state->depth_image.image);
 
-    vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
-    vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
-
-    vk_render_set_viewport(state->command_buffer, viewport_width,
-        viewport_height);
+    vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
+        VK_SUBPASS_CONTENTS_INLINE);
 }
+
+void vk_render_shadow(
+    struct vk_state *state
+){
+    vk_render_set_viewport(state->command_buffer, 100, 100);  // TODO: random numbers
+
+    VkClearValue clear_value = {0};
+    clear_value.depthStencil.depth = 1.0f;
+
+    VkRenderPassBeginInfo render_pass_info = {0};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass = state->shadow_render_pass;
+    render_pass_info.framebuffer = state->shadow_framebuffer;
+    render_pass_info.renderArea.offset.x = 0;
+    render_pass_info.renderArea.offset.y = 0;
+    render_pass_info.renderArea.extent.width = 100;  // TODO: random numbers
+    render_pass_info.renderArea.extent.height = 100;
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clear_value;
+
+    vkCmdBindPipeline(state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        state->shadow_pipeline);
+
+    vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
+        VK_SUBPASS_CONTENTS_INLINE);
+}
+
 
 /**
  * @brief Completes render pass. Renders image to user
@@ -151,6 +194,10 @@ void sln_draw_model(
     vkCmdBindDescriptorSets(state->command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
         1, &texture.set, 0, 0);
+
+    vkCmdBindDescriptorSets(state->command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 2,
+        1, &state->shadow_set, 0, 0);
 
     vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
         0, 0, 0);

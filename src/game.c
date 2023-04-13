@@ -46,33 +46,12 @@ void sln_init(
     game.player.dimension = (union vector3){0.4f, 3, 0.4f};
 }
 
-/**
- * @brief Render all objects TODO:
- * 
- */
-void sln_render(
-    struct sln_app app
+void sln_render_all_objects(
+    void
 ){
     struct vk_model *models = resources.world.models;
     struct vk_texture *textures = resources.world.textures;
     struct sln_object *objects = resources.world.objects;
-
-    // Constant buffer 0
-    struct vk_uniform_buffer0 buf0 = {0};
-    mat4_perspective(&buf0.projection,
-        SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
-        0.1f, 1000.0f);
-    mat4_transform(&buf0.view, game.view);
-
-    // Constant buffer 1
-    struct vk_uniform_buffer1 buf1 = {0};
-    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
-        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
-            mat4_transform(&buf1.model[i], objects[i].transform);
-
-    // Render
-    vk_render_begin(&vulkan, (float[4]){1, 1, 1, 1}, &buf0, &buf1,
-        app.width, app.height);
 
     for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++) {
         if (!(objects[i].flags & SLN_WORLD_FLAG_EXISTS))
@@ -84,6 +63,47 @@ void sln_render(
         sln_draw_model(&vulkan, model, texture,
             &push_constant_list.constants[i]);
     }
+}
+
+/**
+ * @brief Render all objects TODO:
+ * 
+ */
+void sln_render(
+    struct sln_app app
+){
+    struct sln_object *objects = resources.world.objects;
+
+    // Constant buffer 0
+    struct vk_uniform_buffer0 buf0 = {0};
+    mat4_perspective(&buf0.projection,
+        SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
+        0.1f, 100.0f);
+    mat4_transform(&buf0.view, game.view);
+
+    mat4_orthographic(&buf0.camera_projection,
+        -10, 10, -10, 10, 1, 40.0f);
+
+    struct transform camera_view = {0};
+    camera_view.position = (union vector3){0, -10, 0};
+    camera_view.rotation = (union vector3){-DEG_TO_RAD(40), 0, 0};
+    camera_view.scale = (union vector3){1, 1, 1};
+
+    mat4_transform(&buf0.camera_view, camera_view);
+
+    // Constant buffer 1
+    struct vk_uniform_buffer1 buf1 = {0};
+    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
+        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
+            mat4_transform(&buf1.model[i], objects[i].transform);
+
+    // Render
+    vk_render_begin(&vulkan, &buf0, &buf1);
+
+    vk_render_shadow(&vulkan);
+    sln_render_all_objects();
+    vk_render_main(&vulkan, (float[4]){1, 0, 1, 1}, app.width, app.height);
+    sln_render_all_objects();
 
     vk_render_end(vulkan);
 }
@@ -93,16 +113,17 @@ void sln_render(
  * 
  * @param app Game information
  */
-void sln_update(struct sln_app app)
-{
+void sln_update(
+    struct sln_app app
+){
     float rotcos = cosf(game.view.rotation.c.y);
     float rotsin = sinf(game.view.rotation.c.y);
 
     union vector2 move = app.controls.move;
     union vector2 look = app.controls.look;
 
-    game.view.position.c.x += (move.c.x * rotcos - move.c.y * rotsin) / 10.0f;
-    game.view.position.c.z += (-move.c.x * rotsin - move.c.y * rotcos) / 10.0f;
+    game.view.position.c.x += (move.c.x * rotcos - move.c.y * rotsin) / 4.0f;
+    game.view.position.c.z += (-move.c.x * rotsin - move.c.y * rotcos) / 4.0f;
     game.view.position.c.y = -3;
     game.view.scale = (union vector3){1, 1, 1};
 
