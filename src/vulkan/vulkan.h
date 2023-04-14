@@ -96,6 +96,25 @@ struct vk_vertex {
 };
 #pragma pack(pop)
 
+#define VK_MAX_MODELS 100
+#define VK_MAX_TEXTURES VK_MAX_MODELS
+#define VK_MAX_OBJECTS 1000
+
+#define VK_FLAG_EXISTS 0x1
+
+struct vk_object {
+    uint64_t flags;
+    struct vk_model *model;
+    struct vk_texture *texture;
+    struct transform transform;
+};
+
+struct graphics_world {
+    struct vk_model models[VK_MAX_MODELS];
+    struct vk_texture textures[VK_MAX_TEXTURES];
+    struct vk_object objects[VK_MAX_OBJECTS];
+};
+
 struct graphics_state {
     VkInstance instance;
     VkPhysicalDevice physical_device;

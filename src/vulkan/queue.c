@@ -60,7 +60,7 @@ void vk_create_command_pool(
  * @param command_pool Vulkan command pool
  * @param command_buffer Returns the created command buffer
  */
-void vk_create_command_buffer( // TODO: transfer command buffer??
+void vk_create_command_buffer( // TODO: transfer command queue/buffer??
     VkDevice device,
     VkCommandPool command_pool,
     VkCommandBuffer *command_buffer

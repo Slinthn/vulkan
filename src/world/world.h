@@ -53,7 +53,7 @@ struct sw_point_cuboid {
 };
 #pragma pack(pop)
 
-#define SLN_WORLD_FLAG_EXISTS 0x1
+#define SW_FLAG_EXISTS 0x1
 
 struct sln_object {
     uint32_t model_index;
@@ -62,13 +62,20 @@ struct sln_object {
     struct transform transform;
 };
 
-struct sln_world {
-    struct vk_model models[100];  // TODO: random number
-    struct vk_texture textures[100];  // TODO: random number
-    struct sln_object objects[1000];  // TODO: random number
-    struct physics_world physics;
+#define SW_MAX_MODELS 100
+#define SW_MAX_TEXTURES SW_MAX_MODELS
+#define SW_MAX_OBJECTS SW_MAX_MODELS
+#define SW_MAX_POINT_CUBOIDS SW_MAX_MODELS
+
+struct sw_world {
+    uint64_t model_count;
+    struct sw_model models[SW_MAX_MODELS];
+    uint64_t texture_count;
+    struct sw_texture textures[SW_MAX_TEXTURES];
+    uint64_t object_count;
+    struct sw_object objects[SW_MAX_OBJECTS];
+    uint64_t point_cuboid_count;
+    struct sw_point_cuboid point_cuboids[SW_MAX_POINT_CUBOIDS];
 };
 
-#include "model.c"
-#include "texture.c"
 #include "world.c"

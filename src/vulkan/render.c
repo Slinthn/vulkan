@@ -220,16 +220,14 @@ void sln_draw_model(
 
 void graphics_render_all_objects(
     struct graphics_state state,
-    struct vk_model models[100],  // TODO: random number
-    struct vk_texture textures[100],  // TODO: random number
-    struct sln_object objects[1000]
+    struct vk_object objects[VK_MAX_OBJECTS]
 ){
-    for (uint32_t i = 0; i < 1000; i++) {  // TODO: random number
-        if (!(objects[i].flags & SLN_WORLD_FLAG_EXISTS))
+    for (uint32_t i = 0; i < VK_MAX_OBJECTS; i++) {
+        if (!(objects[i].flags & VK_FLAG_EXISTS))
             continue;
 
-        struct vk_model model = models[objects[i].model_index];
-        struct vk_texture texture = textures[objects[i].texture_index];
+        struct vk_model model = *objects[i].model;
+        struct vk_texture texture = *objects[i].texture;
         state.push_constant_list.constants[i].index = i;
         sln_draw_model(&state, model, texture,
             &state.push_constant_list.constants[i]);
@@ -243,17 +241,15 @@ void graphics_render_all_objects(
 void graphics_render(
     struct graphics_state *state,
     struct sln_app app,
-    struct sln_state game,
-    struct sln_resources resources
+    struct transform view,
+    struct graphics_world world
 ){
-    struct sln_object *objects = resources.world.objects;
-
     // Constant buffer 0
     struct vk_uniform_buffer0 buf0 = {0};
     mat4_perspective(&buf0.projection,
         SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
         0.1f, 100.0f);
-    mat4_transform(&buf0.view, game.view);
+    mat4_transform(&buf0.view, view);
 
     mat4_orthographic(&buf0.camera_projection,
         -100, 100, -100, 100, 1, 40.0f);
@@ -267,19 +263,17 @@ void graphics_render(
 
     // Constant buffer 1
     struct vk_uniform_buffer1 buf1 = {0};
-    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
-        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
-            mat4_transform(&buf1.model[i], objects[i].transform);
+    for (uint32_t i = 0; i < VK_MAX_OBJECTS; i++)
+        if (world.objects[i].flags & VK_FLAG_EXISTS)
+            mat4_transform(&buf1.model[i], world.objects[i].transform);
 
     // Render
     vk_render_begin(state, &buf0, &buf1);
 
     vk_render_shadow(state);
-    graphics_render_all_objects(*state, resources.world.models,
-        resources.world.textures, resources.world.objects);
+    graphics_render_all_objects(*state, world.objects);
     vk_render_main(state, (float[4]){1, 0, 1, 1}, app.width, app.height);
-    graphics_render_all_objects(*state, resources.world.models,
-        resources.world.textures, resources.world.objects);
+    graphics_render_all_objects(*state, world.objects);
 
     vk_render_end(*state);
 }

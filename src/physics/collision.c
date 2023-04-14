@@ -36,16 +36,3 @@ void physics_collision_resolve(
     else
         player->centre.z = c.centre.z + sz * wz;
 }
-
-/**
- * @brief Run the physics simulation
- * 
- * @param world Physics world to calculate
- * @param player Player to calculate
- */
-void physics_run(struct physics_world world, struct point_cuboid *player)
-{
-    for (uint32_t i = 0; i < SIZEOF_ARRAY(world.cuboid); i++)
-        if (world.cuboid[i].flags & PHYSICS_FLAG_EXISTS)
-            physics_collision_resolve(world.cuboid[i], player);
-}

@@ -10,23 +10,25 @@
 #endif  // SLN_VULKAN
 
 #include "file.c"
-#include "physics/physics.h"
 #include "vulkan/vulkan.h"
 #include "world/world.h"
+#include "physics/physics.h"
 
 struct sln_resources {
-    struct sln_world world;
+    struct sw_world world;
 };
 
 struct sln_state {
     struct transform view;
-    struct point_cuboid player;
+    struct graphics_state graphics;
+    struct graphics_world graphics_world;
+    struct physics_world physics_world;
 };
 
+#include "vulkan/world.c"
 #include "vulkan/render.c"
 
 // TODO: daz no good...
-struct graphics_state graphics;
 struct sln_state game;
 struct sln_resources resources;
 
@@ -38,14 +40,17 @@ struct sln_resources resources;
 void sln_init(
     struct graphics_surface surface
 ){
-    graphics = graphics_init(surface);
+    game.graphics = graphics_init(surface);
 
     // TODO: no good
-    resources.world = sln_load_sw(graphics.device, graphics.physical_device,
+    resources.world = sln_load_sw(/*graphics.device, graphics.physical_device,
         graphics.command_pool, graphics.queue.type.graphics, graphics.sampler,
-        graphics.pool, graphics.set_layout[1], "world.sw");
+        graphics.pool, graphics.set_layout[1], */"world.sw");
 
-    game.player.dimension = (union vector3){0.4f, 3, 0.4f};
+    game.graphics_world = graphics_load_sw(game.graphics, resources.world);
+    game.physics_world = physics_load_sw(resources.world);
+
+    game.physics_world.player.dimension = (union vector3){0.4f, 3, 0.4f};
 }
 
 /**
@@ -75,15 +80,15 @@ void sln_update(
     else if (game.view.rotation.x < -DEG_TO_RAD(90))
         game.view.rotation.x = -DEG_TO_RAD(90);
 
-    game.player.centre.x = game.view.position.x;
-    game.player.centre.y = game.view.position.y;
-    game.player.centre.z = game.view.position.z;
+    game.physics_world.player.centre.x = game.view.position.x;
+    game.physics_world.player.centre.y = game.view.position.y;
+    game.physics_world.player.centre.z = game.view.position.z;
 
-    physics_run(resources.world.physics, &game.player);
+    physics_run(&game.physics_world);
 
-    game.view.position.x = game.player.centre.x;
-    game.view.position.y = game.player.centre.y;
-    game.view.position.z = game.player.centre.z;
+    game.view.position.x = game.physics_world.player.centre.x;
+    game.view.position.y = game.physics_world.player.centre.y;
+    game.view.position.z = game.physics_world.player.centre.z;
 
-    graphics_render(&graphics, app, game, resources);
+    graphics_render(&game.graphics, app, game.view, game.graphics_world);
 }
