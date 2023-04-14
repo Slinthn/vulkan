@@ -131,7 +131,7 @@ int APIENTRY WinMain(
     (void)show;
 
     struct sln_app app = {0};
-    struct vk_surface surface = {0};
+    struct graphics_surface surface = {0};
     surface.hinstance = hinstance;
 
     WNDCLASSEXA wc = {0};

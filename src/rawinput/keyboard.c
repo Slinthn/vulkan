@@ -1,5 +1,13 @@
-void rawinput_parse_keyboard_data(struct user_controls *control, RAWINPUT *data)
-{
+/**
+ * @brief Parse keyboard data for RawInput
+ * 
+ * @param control Returns user controls
+ * @param data Stream of bytes from keyboard
+ */
+void rawinput_parse_keyboard_data(
+    struct user_controls *control,
+    RAWINPUT *data
+){
     uint8_t down = !(data->data.keyboard.Flags & RI_KEY_BREAK);
     uint16_t key = data->data.keyboard.VKey;
 
@@ -37,18 +45,18 @@ void rawinput_parse_keyboard_data(struct user_controls *control, RAWINPUT *data)
     } break;
     }
 
-    control->move.c.x = 0;
-    control->move.c.y = 0;
+    control->move.x = 0;
+    control->move.y = 0;
 
     if (control->keypress[0] != control->keypress[2])
         if (control->keypress[0])
-            control->move.c.y = -1;
+            control->move.y = -1;
         else if (control->keypress[2])
-            control->move.c.y = 1;
+            control->move.y = 1;
 
     if (control->keypress[1] != control->keypress[3])
         if (control->keypress[1])
-            control->move.c.x = -1;
+            control->move.x = -1;
         else if (control->keypress[3])
-            control->move.c.x = 1;
+            control->move.x = 1;
 }

@@ -3,7 +3,7 @@
 #define ACTION_ASCEND 0x4
 
 #pragma pack(push, 1)
-struct rawinput_dualshock4 {
+struct ri_ds4 {
   uint8_t reportid;
   uint8_t lx;
   uint8_t ly;

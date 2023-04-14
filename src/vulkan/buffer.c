@@ -7,10 +7,10 @@
  *     vkGetPhysicalDeviceMemoryProperties
  * @param required_flags Required flags for the memory type to have, i.e.
  *     which stages of the rendering pipeline can view the resource
- * @return Returns the suitable memory index,
- *     or UINT32_MAX if none found
+ * @return uint32_t Returns the suitable memory index, or UINT32_MAX if none
+ *     found
  */
-uint32_t _vk_find_suitable_memory_type(
+uint32_t vk_find_suitable_memory_type(
     VkMemoryRequirements requirements,
     VkPhysicalDeviceMemoryProperties properties,
     uint32_t required_flags
@@ -36,7 +36,7 @@ uint32_t _vk_find_suitable_memory_type(
  * @param flags Property flag bits, how the resource can be accessed and used
  * @return struct vk_buffer Created buffer
  */
-struct vk_buffer _vk_create_buffer(
+struct vk_buffer vk_create_buffer(
     VkDevice device,
     VkPhysicalDevice physical_device,
     uint64_t bytes,
@@ -63,7 +63,7 @@ struct vk_buffer _vk_create_buffer(
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex =
-        _vk_find_suitable_memory_type(requirements, properties, flags);
+        vk_find_suitable_memory_type(requirements, properties, flags);
 
     vkAllocateMemory(device, &allocate_info, 0, &buffer.memory);
     vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0);
@@ -85,7 +85,7 @@ struct vk_buffer vk_create_vertex_buffer(
     void *data,
     uint64_t data_size
 ){
-    struct vk_buffer buffer = _vk_create_buffer(device, physical_device,
+    struct vk_buffer buffer = vk_create_buffer(device, physical_device,
         data_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -94,7 +94,6 @@ struct vk_buffer vk_create_vertex_buffer(
     vkMapMemory(device, buffer.memory, 0, VK_WHOLE_SIZE, 0, &data_ptr);
     memcpy(data_ptr, data, data_size);
     vkUnmapMemory(device, buffer.memory);
-
     return buffer;
 }
 
@@ -105,7 +104,7 @@ struct vk_buffer vk_create_vertex_buffer(
  * @param physical_device Vulkan physical device
  * @param indices Index data
  * @param index_count Number of indices (elements in the array)
- * @return struct vk_buffer The created index buffer information
+ * @return struct vk_index_buffer The created index buffer information
  */
 struct vk_index_buffer vk_create_index_buffer(
     VkDevice device,
@@ -118,7 +117,7 @@ struct vk_index_buffer vk_create_index_buffer(
     struct vk_index_buffer buffer = {0};
     buffer.index_count = index_count;
 
-    buffer.buffer = _vk_create_buffer(device, physical_device, data_size,
+    buffer.buffer = vk_create_buffer(device, physical_device, data_size,
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -126,7 +125,6 @@ struct vk_index_buffer vk_create_index_buffer(
     vkMapMemory(device, buffer.buffer.memory, 0, VK_WHOLE_SIZE, 0, &data_ptr);
     memcpy(data_ptr, indices, data_size);
     vkUnmapMemory(device, buffer.buffer.memory);
-
     return buffer;
 }
 
@@ -146,7 +144,7 @@ struct vk_uniform_buffer vk_create_uniform_buffer(
     struct vk_uniform_buffer buffer = {0};
     buffer.data_size = data_size;
 
-    buffer.buffer = _vk_create_buffer(device, physical_device, data_size,
+    buffer.buffer = vk_create_buffer(device, physical_device, data_size,
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -158,6 +156,7 @@ struct vk_uniform_buffer vk_create_uniform_buffer(
 
 /**
  * @brief Update the data in a uniform buffer. GPU sees changes immediately
+ *     due to VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag
  * 
  * @param ub Uniform buffer to edit
  * @param data New data to overwrite. Note that the data size should equal

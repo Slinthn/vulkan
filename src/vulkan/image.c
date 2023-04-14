@@ -5,14 +5,13 @@
  * @param image Image to use
  * @param format Swapchain colour format
  * @param flags Flags to do with how the image should be viewed
- * @param view Returns the created image view
+ * @return VkImageView Created image view
  */
-void _vk_get_image_view(
+VkImageView vk_get_image_view(
     VkDevice device,
     VkImage image,
     VkFormat format,
-    VkImageAspectFlags flags,
-    VkImageView *view
+    VkImageAspectFlags flags
 ){
     VkImageViewCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -27,7 +26,9 @@ void _vk_get_image_view(
     create_info.subresourceRange.levelCount = 1;
     create_info.subresourceRange.layerCount = 1;
 
-    vkCreateImageView(device, &create_info, 0, view);
+    VkImageView view;
+    vkCreateImageView(device, &create_info, 0, &view);
+    return view;
 }
 
 /**
@@ -40,7 +41,7 @@ void _vk_get_image_view(
  * @param height Height of the image
  * @param usage Usage flags, how the image will be used
  * @param flags Memory flags in order to find a suitable memory property
- * @return Created image information
+ * @return struct vk_image Created image information
  */
 struct vk_image vk_create_image(
     VkDevice device,
@@ -80,14 +81,28 @@ struct vk_image vk_create_image(
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex =
-        _vk_find_suitable_memory_type(requirements, properties, flags);
+        vk_find_suitable_memory_type(requirements, properties, flags);
 
     vkAllocateMemory(device, &allocate_info, 0, &image.memory);
     vkBindImageMemory(device, image.image, image.memory, 0);
     return image;
 }
 
-void _vk_transition_image(
+/**
+ * @brief Transition an image resource barrier. Must be called in between a
+ *     vkBeginCommandBuffer and vEndCommandBuffer
+ * 
+ * @param command_buffer Command buffer to execute command on
+ * @param src_stage_flags Old memory access types that can read/write to image
+ * @param dst_stage_flags New memory access types that can read/write to image
+ * @param src_access_flags Old stages which can access this resource
+ * @param dst_access_flags New stages which can access this resource
+ * @param old_layout Old accessing method
+ * @param new_layout New accessing method
+ * @param aspect_mask Which aspect of the image is accessed (colour, depth, etc)
+ * @param image Image to act upon
+ */
+void vk_transition_image(
     VkCommandBuffer command_buffer,
     VkPipelineStageFlags src_stage_flags,
     VkPipelineStageFlags dst_stage_flags,
@@ -116,21 +131,25 @@ void _vk_transition_image(
 }
 
 /**
- * @brief TODO:
+ * @brief Create a texture
  * 
- * @param device 
- * @param physical_device 
- * @param command_pool 
- * @param graphics_queue 
- * @param data 
- * @param bytes 
- * @param width 
- * @param height 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @param command_pool Vulkan command pool
+ * @param graphics_queue Vulkan graphics queue
+ * @param data Texture pixel data
+ * @param bytes Size of data in bytes
+ * @param width Texture width
+ * @param height Texture Height
+ * @param sampler Vulkan sampler to use for this texture
+ * @param pool Vulkan descriptor pool
+ * @param set_layout Vulkan set layout for a texture
+ * @return struct vk_texture Created texture information
  */
 struct vk_texture vk_create_texture(
     VkDevice device,
     VkPhysicalDevice physical_device,
-    VkCommandPool command_pool,
+    VkCommandPool command_pool,  // TODO: i hate this, a command pool and queue?
     VkQueue graphics_queue,
     void *data,
     uint64_t bytes,
@@ -142,7 +161,7 @@ struct vk_texture vk_create_texture(
 ){
     struct vk_texture tex = {0};
 
-    struct vk_buffer staging = _vk_create_buffer(device, physical_device,
+    struct vk_buffer staging = vk_create_buffer(device, physical_device,
         bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -172,7 +191,7 @@ struct vk_texture vk_create_texture(
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(command_buffer, &begin_info);
 
-    _vk_transition_image(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    vk_transition_image(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_ASPECT_COLOR_BIT, tex.image.image);
@@ -187,7 +206,7 @@ struct vk_texture vk_create_texture(
     vkCmdCopyBufferToImage(command_buffer, staging.buffer, tex.image.image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    _vk_transition_image(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+    vk_transition_image(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
         VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -204,25 +223,24 @@ struct vk_texture vk_create_texture(
 
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 
-    _vk_allocate_descriptor_sets(device, pool, &set_layout, 1, &tex.set);
+    vk_allocate_descriptor_sets(device, pool, &set_layout, 1, &tex.set);
 
-    _vk_get_image_view(device, tex.image.image, VK_FORMAT_R8G8B8A8_SRGB,
-        VK_IMAGE_ASPECT_COLOR_BIT, &tex.image_view);
+    tex.image_view = vk_get_image_view(device, tex.image.image,
+        VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    _vk_update_descriptor_set1(device, sampler, tex.image_view, tex.set);
+    vk_update_descriptor_set1(device, sampler, tex.image_view, tex.set);
 
     return tex;
 }
 
 /**
- * @brief TODO:
+ * @brief Create a sampler for a texture
  * 
- * @param device 
- * @param sampler 
+ * @param device Vulkan device
+ * @return VkSampler Vulkan sampler 
  */
-void _vk_create_sampler(
-    VkDevice device,
-    OUT VkSampler *sampler
+VkSampler vk_create_sampler(
+    VkDevice device
 ){
     VkSamplerCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -231,5 +249,42 @@ void _vk_create_sampler(
     create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     create_info.mipLodBias = 1;
 
-    vkCreateSampler(device, &create_info, 0, sampler);
+    VkSampler sampler;
+    vkCreateSampler(device, &create_info, 0, &sampler);
+    return sampler;
+}
+
+/**
+ * @brief Create a depth buffer
+ * 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @return struct vk_image 
+ */
+struct vk_image vk_create_depth_buffer(
+    VkDevice device,
+    VkPhysicalDevice pd
+){
+    return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
+        VK_FRAMEBUFFER_WIDTH, VK_FRAMEBUFFER_HEIGHT,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+}
+
+/**
+ * @brief Create a depth buffer
+ * 
+ * @param device Vulkan device
+ * @param physical_device Vulkan physical device
+ * @return struct vk_image 
+ */
+struct vk_image vk_create_shadow_depth_buffer(
+    VkDevice device,
+    VkPhysicalDevice pd
+){
+    return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
+        VK_SHADOW_WIDTH, VK_SHADOW_HEIGHT,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+        | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }

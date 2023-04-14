@@ -18,11 +18,9 @@ void main(
 
     if (proj_coords.x > 0 && proj_coords.x < 1 && proj_coords.y > 0
         && proj_coords.y < 1) {
-        if (proj_coords.z + 0.01 > texture(shadow, proj_coords.xy).r) {
-            shade = 0.1f;
+        if (proj_coords.z - 0.2 > texture(shadow, proj_coords.xy).r) {
+            shade = 0.2f;
         }
-        final_colour = texture(samp, tex) * shade;
-    } else {
-        final_colour = shadow_tex;
     }
+    final_colour = texture(samp, tex) * shade;
 }

@@ -8,7 +8,7 @@
  * @param user_data User-defined data (in VkDebugUtilsMessengerCreateInfoEXT)
  * @return VKAPI_ATTR Return code
  */
-VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
+VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
     const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
@@ -32,9 +32,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 /**
  * @brief Populate a VkDebugUtilsMessengerCreateInfoEXT structure
  * 
- * @param create_info Pointer in which populated structure will be returned
+ * @param ci Pointer in which populated structure will be returned
  */
-void _vk_populate_debug_struct(
+void vk_populate_debug_struct(
     OUT VkDebugUtilsMessengerCreateInfoEXT *ci
 ){
     *ci = (VkDebugUtilsMessengerCreateInfoEXT){0};
@@ -49,7 +49,7 @@ void _vk_populate_debug_struct(
         | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
 
-    ci->pfnUserCallback = _vk_debug_callback;
+    ci->pfnUserCallback = vk_debug_callback;
 }
 
 /**
@@ -58,12 +58,12 @@ void _vk_populate_debug_struct(
  * @param instance Vulkan instance
  * @param debug_messenger Return handle for the created debug messenger
  */
-void _vk_create_debug_messenger(
+void vk_create_debug_messenger(
     VkInstance instance,
     OUT VkDebugUtilsMessengerEXT *debug_messenger
 ){
     VkDebugUtilsMessengerCreateInfoEXT create_info;
-    _vk_populate_debug_struct(&create_info);
+    vk_populate_debug_struct(&create_info);
 
     PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
         (PFN_vkCreateDebugUtilsMessengerEXT)(void *)vkGetInstanceProcAddr(

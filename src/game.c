@@ -10,8 +10,8 @@
 #endif  // SLN_VULKAN
 
 #include "file.c"
-#include "vulkan/vulkan.h"
 #include "physics/physics.h"
+#include "vulkan/vulkan.h"
 #include "world/world.h"
 
 struct sln_resources {
@@ -23,89 +23,29 @@ struct sln_state {
     struct point_cuboid player;
 };
 
+#include "vulkan/render.c"
+
 // TODO: daz no good...
-struct vk_state vulkan;
+struct graphics_state graphics;
 struct sln_state game;
 struct sln_resources resources;
-struct vk_push_contant0_list push_constant_list;
 
 /**
  * @brief Initialise the game
  * 
- * @param surface OS Vulkan surface
+ * @param surface OS Graphics surface
  */
 void sln_init(
-    struct vk_surface surface
+    struct graphics_surface surface
 ){
-    vulkan = vk_init(surface);
+    graphics = graphics_init(surface);
 
-    resources.world = sln_load_sw(vulkan.device, vulkan.physical_device,
-        vulkan.command_pool, vulkan.queue.type.graphics, vulkan.sampler,
-        vulkan.pool, vulkan.set_layout[1], "world.sw");
+    // TODO: no good
+    resources.world = sln_load_sw(graphics.device, graphics.physical_device,
+        graphics.command_pool, graphics.queue.type.graphics, graphics.sampler,
+        graphics.pool, graphics.set_layout[1], "world.sw");
 
     game.player.dimension = (union vector3){0.4f, 3, 0.4f};
-}
-
-void sln_render_all_objects(
-    void
-){
-    struct vk_model *models = resources.world.models;
-    struct vk_texture *textures = resources.world.textures;
-    struct sln_object *objects = resources.world.objects;
-
-    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++) {
-        if (!(objects[i].flags & SLN_WORLD_FLAG_EXISTS))
-            continue;
-
-        struct vk_model model = models[objects[i].model_index];
-        struct vk_texture texture = textures[objects[i].texture_index];
-        push_constant_list.constants[i].index = i;
-        sln_draw_model(&vulkan, model, texture,
-            &push_constant_list.constants[i]);
-    }
-}
-
-/**
- * @brief Render all objects TODO:
- * 
- */
-void sln_render(
-    struct sln_app app
-){
-    struct sln_object *objects = resources.world.objects;
-
-    // Constant buffer 0
-    struct vk_uniform_buffer0 buf0 = {0};
-    mat4_perspective(&buf0.projection,
-        SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
-        0.1f, 100.0f);
-    mat4_transform(&buf0.view, game.view);
-
-    mat4_orthographic(&buf0.camera_projection,
-        -10, 10, -10, 10, 1, 40.0f);
-
-    struct transform camera_view = {0};
-    camera_view.position = (union vector3){0, -10, 0};
-    camera_view.rotation = (union vector3){-DEG_TO_RAD(40), 0, 0};
-    camera_view.scale = (union vector3){1, 1, 1};
-
-    mat4_transform(&buf0.camera_view, camera_view);
-
-    // Constant buffer 1
-    struct vk_uniform_buffer1 buf1 = {0};
-    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
-        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
-            mat4_transform(&buf1.model[i], objects[i].transform);
-
-    // Render
-    vk_render_begin(&vulkan, &buf0, &buf1);
-
-    vk_render_shadow(&vulkan);
-    sln_render_all_objects();
-    vk_render_main(&vulkan, (float[4]){1, 0, 1, 1}, app.width, app.height);
-    sln_render_all_objects();
-
-    vk_render_end(vulkan);
 }
 
 /**
@@ -116,34 +56,34 @@ void sln_render(
 void sln_update(
     struct sln_app app
 ){
-    float rotcos = cosf(game.view.rotation.c.y);
-    float rotsin = sinf(game.view.rotation.c.y);
+    float rotcos = cosf(game.view.rotation.y);
+    float rotsin = sinf(game.view.rotation.y);
 
     union vector2 move = app.controls.move;
     union vector2 look = app.controls.look;
 
-    game.view.position.c.x += (move.c.x * rotcos - move.c.y * rotsin) / 4.0f;
-    game.view.position.c.z += (-move.c.x * rotsin - move.c.y * rotcos) / 4.0f;
-    game.view.position.c.y = -3;
+    game.view.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
+    game.view.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
+    game.view.position.y = -3;
     game.view.scale = (union vector3){1, 1, 1};
 
-    game.view.rotation.c.y += look.c.x / 80.0f;
-    game.view.rotation.c.x += -look.c.y / 80.0f;
+    game.view.rotation.y += look.x / 80.0f;
+    game.view.rotation.x += -look.y / 80.0f;
 
-    if (game.view.rotation.c.x > DEG_TO_RAD(90))
-        game.view.rotation.c.x = DEG_TO_RAD(90);
-    else if (game.view.rotation.c.x < -DEG_TO_RAD(90))
-        game.view.rotation.c.x = -DEG_TO_RAD(90);
+    if (game.view.rotation.x > DEG_TO_RAD(90))
+        game.view.rotation.x = DEG_TO_RAD(90);
+    else if (game.view.rotation.x < -DEG_TO_RAD(90))
+        game.view.rotation.x = -DEG_TO_RAD(90);
 
-    game.player.centre.c.x = game.view.position.c.x;
-    game.player.centre.c.y = game.view.position.c.y;
-    game.player.centre.c.z = game.view.position.c.z;
+    game.player.centre.x = game.view.position.x;
+    game.player.centre.y = game.view.position.y;
+    game.player.centre.z = game.view.position.z;
 
     physics_run(resources.world.physics, &game.player);
 
-    game.view.position.c.x = game.player.centre.c.x;
-    game.view.position.c.y = game.player.centre.c.y;
-    game.view.position.c.z = game.player.centre.c.z;
+    game.view.position.x = game.player.centre.x;
+    game.view.position.y = game.player.centre.y;
+    game.view.position.z = game.player.centre.z;
 
-    sln_render(app);
+    graphics_render(&graphics, app, game, resources);
 }

@@ -53,13 +53,13 @@ struct sln_world sln_load_sw(
     for (uint32_t i = 0; i < header->point_cuboid_count; i++, cb_ptr++) {
         struct point_cuboid *cb = &world.physics.cuboid[i];
         cb->flags = PHYSICS_FLAG_EXISTS;
-        cb->centre.c.x = cb_ptr->centre[0];
-        cb->centre.c.y = cb_ptr->centre[1];
-        cb->centre.c.z = cb_ptr->centre[2];
+        cb->centre.x = cb_ptr->centre[0];
+        cb->centre.y = cb_ptr->centre[1];
+        cb->centre.z = cb_ptr->centre[2];
 
-        cb->dimension.c.x = cb_ptr->dimension[0];
-        cb->dimension.c.y = cb_ptr->dimension[1];
-        cb->dimension.c.z = cb_ptr->dimension[2];
+        cb->dimension.x = cb_ptr->dimension[0];
+        cb->dimension.y = cb_ptr->dimension[1];
+        cb->dimension.z = cb_ptr->dimension[2];
     }
 
     sln_close_file(file);

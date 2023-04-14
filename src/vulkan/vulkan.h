@@ -6,6 +6,9 @@
 #define VK_FRAMEBUFFER_WIDTH 1280
 #define VK_FRAMEBUFFER_HEIGHT 720
 
+#define VK_SHADOW_WIDTH 1000
+#define VK_SHADOW_HEIGHT 1000
+
 union vk_queue_family {
     struct {
         uint32_t graphics, present;
@@ -93,7 +96,7 @@ struct vk_vertex {
 };
 #pragma pack(pop)
 
-struct vk_state {
+struct graphics_state {
     VkInstance instance;
     VkPhysicalDevice physical_device;
     VkDevice device;
@@ -125,6 +128,9 @@ struct vk_state {
     struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
     struct vk_texture texture;
 
+
+    struct vk_push_contant0_list push_constant_list;
+
     // TODO: shadow
     struct vk_image depth_image;
     VkDescriptorSet shadow_set;
@@ -134,18 +140,25 @@ struct vk_state {
 };
 
 #ifdef SLN_WIN64
-#include "vulkan_win64.c"
+#include "win64.c"
 #endif  // SLN_WIN64
 
-#include "vulkan_buffer.c"
-#include "vulkan_shader.c"
+#include "buffer.c"
+#include "descriptor.c"
+#include "pipeline.c"
+#include "shader.c"
 
 #ifdef SLN_DEBUG
-#include "vulkan_debug.c"
+#include "debug.c"
 #endif  // SLN_DEBUG
 
-#include "vulkan_image.c"
-#include "vulkan_render.c"
+#include "image.c"
+#include "renderpass.c"
+#include "device.c"
+#include "swapchain.c"
+#include "queue.c"
+#include "surface.c"
+#include "timing.c"
 #include "vulkan.c"
 
 #endif  // SLN_VULKAN

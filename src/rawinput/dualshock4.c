@@ -1,13 +1,15 @@
 #define DS4_DEADZONE 0.35
 
 /**
- * @brief TODO:
+ * @brief Calculate deadzone of PS4 controller. Returns 0 if value is between
+ *     deadzone values
  * 
- * @param value 
- * @return float 
+ * @param value Value to test
+ * @return float Deadzone-d value
  */
-float rawinput_deadzone(float value)
-{
+float rawinput_deadzone(
+    float value
+){
     return (-DS4_DEADZONE < value && value < DS4_DEADZONE) ? 0 : value;
 }
 
@@ -19,7 +21,7 @@ float rawinput_deadzone(float value)
  */
 void rawinput_parse_dualshock4_data(
     struct user_controls *control,
-    struct rawinput_dualshock4 *data
+    struct ri_ds4 *data
 ){
     uint64_t actions = 0;
     if (data->buttons & (1 << 5))
@@ -42,9 +44,9 @@ void rawinput_parse_dualshock4_data(
 
     if (control->is_controller) {
         control->actions = actions;
-        control->move.c.x = mx;
-        control->move.c.y = my;
-        control->look.c.x = lx;
-        control->look.c.y = ly;
+        control->move.x = mx;
+        control->move.y = my;
+        control->look.x = lx;
+        control->look.y = ly;
     }
 }

@@ -32,13 +32,11 @@ void vk_render_set_viewport(
  *     operations
  * 
  * @param state Vulkan state
- * @param clear_color Clear colour for the screen, in order R, G, B, A
  * @param buffer0 Uniform buffer 0, to be uploaded to the GPU prior to rendering
- * @param viewport_width Viewport width
- * @param viewport_height Viewport height
+ * @param buffer1 Uniform buffer 1, to be uploaded to the GPU prior to rendering
  */
 void vk_render_begin(
-    struct vk_state *state,
+    struct graphics_state *state,
     struct vk_uniform_buffer0 *buffer0,
     struct vk_uniform_buffer1 *buffer1
 ){
@@ -64,8 +62,17 @@ void vk_render_begin(
     vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
 }
 
+/**
+ * @brief Main colour rendering. Should be called after rendering to the
+ *     shadow depth buffer is complete
+ * 
+ * @param state Vulkan state
+ * @param clear_color Clear colour for the screen, in order R, G, B, A
+ * @param viewport_width Viewport width
+ * @param viewport_height Viewport height
+ */
 void vk_render_main(
-    struct vk_state *state,
+    struct graphics_state *state,
     float clear_color[4],
     uint32_t viewport_width,
     uint32_t viewport_height
@@ -97,7 +104,7 @@ void vk_render_main(
     vkCmdBindPipeline(state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
         state->shader.pipeline);
 
-    _vk_transition_image(state->command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    vk_transition_image(state->command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, VK_ACCESS_SHADER_READ_BIT,
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -107,10 +114,16 @@ void vk_render_main(
         VK_SUBPASS_CONTENTS_INLINE);
 }
 
+/**
+ * @brief Prepare to render shadows
+ * 
+ * @param state Vulkan state
+ */
 void vk_render_shadow(
-    struct vk_state *state
+    struct graphics_state *state
 ){
-    vk_render_set_viewport(state->command_buffer, 100, 100);  // TODO: random numbers
+    vk_render_set_viewport(state->command_buffer, VK_SHADOW_WIDTH,
+        VK_SHADOW_HEIGHT);
 
     VkClearValue clear_value = {0};
     clear_value.depthStencil.depth = 1.0f;
@@ -121,8 +134,8 @@ void vk_render_shadow(
     render_pass_info.framebuffer = state->shadow_framebuffer;
     render_pass_info.renderArea.offset.x = 0;
     render_pass_info.renderArea.offset.y = 0;
-    render_pass_info.renderArea.extent.width = 100;  // TODO: random numbers
-    render_pass_info.renderArea.extent.height = 100;
+    render_pass_info.renderArea.extent.width = VK_SHADOW_WIDTH;
+    render_pass_info.renderArea.extent.height = VK_SHADOW_HEIGHT;
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_value;
 
@@ -140,7 +153,7 @@ void vk_render_shadow(
  * @param state Vulkan state
  */
 void vk_render_end(
-    struct vk_state state
+    struct graphics_state state
 ){
     vkCmdEndRenderPass(state.command_buffer);
     vkEndCommandBuffer(state.command_buffer);
@@ -169,13 +182,15 @@ void vk_render_end(
 }
 
 /**
- * @brief Draw a model TODO:
+ * @brief Draw a model
  * 
+ * @param state Vulkan state
  * @param model Model to draw
+ * @param texture Texture to apply
  * @param constant Push constant to apply to this draw call
  */
 void sln_draw_model(
-    struct vk_state *state,
+    struct graphics_state *state,
     struct vk_model model,
     struct vk_texture texture,
     struct vk_push_constant0 *constant
@@ -201,4 +216,70 @@ void sln_draw_model(
 
     vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
         0, 0, 0);
+}
+
+void graphics_render_all_objects(
+    struct graphics_state state,
+    struct vk_model models[100],  // TODO: random number
+    struct vk_texture textures[100],  // TODO: random number
+    struct sln_object objects[1000]
+){
+    for (uint32_t i = 0; i < 1000; i++) {  // TODO: random number
+        if (!(objects[i].flags & SLN_WORLD_FLAG_EXISTS))
+            continue;
+
+        struct vk_model model = models[objects[i].model_index];
+        struct vk_texture texture = textures[objects[i].texture_index];
+        state.push_constant_list.constants[i].index = i;
+        sln_draw_model(&state, model, texture,
+            &state.push_constant_list.constants[i]);
+    }
+}
+
+/**
+ * @brief Render all objects TODO:
+ * 
+ */
+void graphics_render(
+    struct graphics_state *state,
+    struct sln_app app,
+    struct sln_state game,
+    struct sln_resources resources
+){
+    struct sln_object *objects = resources.world.objects;
+
+    // Constant buffer 0
+    struct vk_uniform_buffer0 buf0 = {0};
+    mat4_perspective(&buf0.projection,
+        SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
+        0.1f, 100.0f);
+    mat4_transform(&buf0.view, game.view);
+
+    mat4_orthographic(&buf0.camera_projection,
+        -100, 100, -100, 100, 1, 40.0f);
+
+    struct transform camera_view = {0};
+    camera_view.position = (union vector3){10, -20, 0};
+    camera_view.rotation = (union vector3){-DEG_TO_RAD(70), 0, 0};
+    camera_view.scale = (union vector3){1, 1, 1};
+
+    mat4_transform(&buf0.camera_view, camera_view);
+
+    // Constant buffer 1
+    struct vk_uniform_buffer1 buf1 = {0};
+    for (uint32_t i = 0; i < SIZEOF_ARRAY(resources.world.objects); i++)
+        if (objects[i].flags & SLN_WORLD_FLAG_EXISTS)
+            mat4_transform(&buf1.model[i], objects[i].transform);
+
+    // Render
+    vk_render_begin(state, &buf0, &buf1);
+
+    vk_render_shadow(state);
+    graphics_render_all_objects(*state, resources.world.models,
+        resources.world.textures, resources.world.objects);
+    vk_render_main(state, (float[4]){1, 0, 1, 1}, app.width, app.height);
+    graphics_render_all_objects(*state, resources.world.models,
+        resources.world.textures, resources.world.objects);
+
+    vk_render_end(*state);
 }

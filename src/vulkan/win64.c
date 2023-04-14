@@ -1,4 +1,4 @@
-struct vk_surface {
+struct graphics_surface {
     HINSTANCE hinstance;
     HWND hwnd;
 };
@@ -13,7 +13,7 @@ struct vk_surface {
  */
 void vk_win64(
     VkInstance instance,
-    struct vk_surface appsurface,
+    struct graphics_surface appsurface,
     OUT VkSurfaceKHR *surface
 ){
     VkWin32SurfaceCreateInfoKHR create_info = {0};
