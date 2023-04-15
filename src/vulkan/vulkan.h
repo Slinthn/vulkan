@@ -130,6 +130,8 @@ struct graphics_state {
     VkCommandBuffer command_buffer;
     VkSwapchainKHR swapchain;
     VkRenderPass render_pass;
+    struct vk_image depth_image;
+    VkImageView depth_view;
     struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT];
     struct vk_shader shader;
     uint32_t current_image_index;
@@ -151,7 +153,7 @@ struct graphics_state {
     struct vk_push_contant0_list push_constant_list;
 
     // TODO: shadow
-    struct vk_image depth_image;
+    struct vk_image shadow_image;
     VkDescriptorSet shadow_set;
     VkPipeline shadow_pipeline;
     VkFramebuffer shadow_framebuffer;

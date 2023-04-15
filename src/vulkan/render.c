@@ -34,19 +34,30 @@ void vk_render_set_viewport(
  * @param state Vulkan state
  * @param buffer0 Uniform buffer 0, to be uploaded to the GPU prior to rendering
  * @param buffer1 Uniform buffer 1, to be uploaded to the GPU prior to rendering
+ * @return int32_t Return code. -1 if failed and rendering should be aborted.
+ *     0 otherwise
  */
-void vk_render_begin(
+int32_t vk_render_begin(
     struct graphics_state *state,
     struct vk_uniform_buffer0 *buffer0,
     struct vk_uniform_buffer1 *buffer1
 ){
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
         UINT64_MAX);
-    vkResetFences(state->device, 1, &state->render_ready_fence);
 
-    vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX,
-        state->image_ready_semaphore, VK_NULL_HANDLE,
+    // TODO: this causes a validation layer error when resizing screen, but
+    //    I think this might just be an issue with the drivers?
+    VkResult res = vkAcquireNextImageKHR(state->device, state->swapchain,
+        UINT64_MAX, state->image_ready_semaphore, VK_NULL_HANDLE,
         &state->current_image_index);
+
+    // TODO: these values are not always guaranteed. should not fully rely on
+    if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
+        graphics_resize(state);
+        return -1;
+    }
+
+    vkResetFences(state->device, 1, &state->render_ready_fence);
 
     VkCommandBufferBeginInfo begin_info = {0};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -60,6 +71,7 @@ void vk_render_begin(
 
     vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
     vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
+    return 0;
 }
 
 /**
@@ -108,7 +120,7 @@ void vk_render_main(
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, VK_ACCESS_SHADER_READ_BIT,
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_ASPECT_DEPTH_BIT, state->depth_image.image);
+        VK_IMAGE_ASPECT_DEPTH_BIT, state->shadow_image.image);
 
     vkCmdBeginRenderPass(state->command_buffer, &render_pass_info,
         VK_SUBPASS_CONTENTS_INLINE);
@@ -247,7 +259,7 @@ void graphics_render(
     // Constant buffer 0
     struct vk_uniform_buffer0 buf0 = {0};
     mat4_perspective(&buf0.projection,
-        SLN_WINDOW_HEIGHT / (float)SLN_WINDOW_WIDTH, DEG_TO_RAD(90),
+        app.height / (float)app.width, DEG_TO_RAD(120),
         0.1f, 100.0f);
     mat4_transform(&buf0.view, view);
 
@@ -268,11 +280,13 @@ void graphics_render(
             mat4_transform(&buf1.model[i], world.objects[i].transform);
 
     // Render
-    vk_render_begin(state, &buf0, &buf1);
+    if (vk_render_begin(state, &buf0, &buf1))
+        return;
 
     vk_render_shadow(state);
     graphics_render_all_objects(*state, world.objects);
-    vk_render_main(state, (float[4]){1, 0, 1, 1}, app.width, app.height);
+    vk_render_main(state, (float[4]){1, 0, 1, 1}, state->extent.width,
+        state->extent.height);
     graphics_render_all_objects(*state, world.objects);
 
     vk_render_end(*state);

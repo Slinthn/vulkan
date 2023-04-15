@@ -15,12 +15,6 @@
 #include "math/math.h"
 #include "rawinput/rawinput.h"
 
-struct sln_app {
-    uint32_t width;
-    uint32_t height;
-    struct user_controls controls;
-};
-
 #include "game.c"
 
 /**
@@ -88,7 +82,7 @@ DWORD win_game_loop(
     uint32_t fps = 0;
 
     while (1) {
-        sln_update(*app);
+        sln_update(app);
 
         uint64_t new_counter;
         QueryPerformanceCounter((LARGE_INTEGER *)&new_counter);
@@ -147,7 +141,7 @@ int APIENTRY WinMain(
         SLN_WINDOW_WIDTH, SLN_WINDOW_HEIGHT, 0, 0, hinstance, &app);
 
     rawinput_init(surface.hwnd);
-    sln_init(surface);
+    sln_init(&app, surface);
 
     CreateThread(0, 0, win_game_loop, &app, 0, 0);
 

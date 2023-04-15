@@ -255,7 +255,7 @@ VkSampler vk_create_sampler(
 }
 
 /**
- * @brief Create a depth buffer
+ * @brief Create a depth buffer TODO:
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
@@ -263,10 +263,11 @@ VkSampler vk_create_sampler(
  */
 struct vk_image vk_create_depth_buffer(
     VkDevice device,
+    VkExtent2D extent,
     VkPhysicalDevice pd
 ){
     return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
-        VK_FRAMEBUFFER_WIDTH, VK_FRAMEBUFFER_HEIGHT,
+        extent.width, extent.height,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }

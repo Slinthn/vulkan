@@ -14,10 +14,6 @@
 #include "world/world.h"
 #include "physics/physics.h"
 
-struct sln_resources {
-    struct sw_world world;
-};
-
 struct sln_state {
     struct transform view;
     struct graphics_state graphics;
@@ -25,32 +21,44 @@ struct sln_state {
     struct physics_world physics_world;
 };
 
+struct sln_resources {
+    struct sw_world world;
+};
+
+struct sln_app {
+    uint32_t width;
+    uint32_t height;
+    struct user_controls controls;
+    struct sln_state game;
+    struct sln_resources resources;
+};
+
 #include "vulkan/world.c"
 #include "vulkan/render.c"
 
 // TODO: daz no good...
-struct sln_state game;
-struct sln_resources resources;
 
 /**
- * @brief Initialise the game
+ * @brief Initialise the game TODO:
  * 
  * @param surface OS Graphics surface
  */
 void sln_init(
+    struct sln_app *app,
     struct graphics_surface surface
 ){
-    game.graphics = graphics_init(surface);
+    app->game.graphics = graphics_init(surface);
 
     // TODO: no good
-    resources.world = sln_load_sw(/*graphics.device, graphics.physical_device,
+    app->resources.world = sln_load_sw(/*graphics.device, graphics.physical_device,
         graphics.command_pool, graphics.queue.type.graphics, graphics.sampler,
         graphics.pool, graphics.set_layout[1], */"world.sw");
 
-    game.graphics_world = graphics_load_sw(game.graphics, resources.world);
-    game.physics_world = physics_load_sw(resources.world);
+    app->game.graphics_world = graphics_load_sw(app->game.graphics,
+        app->resources.world);
+    app->game.physics_world = physics_load_sw(app->resources.world);
 
-    game.physics_world.player.dimension = (union vector3){0.4f, 3, 0.4f};
+    app->game.physics_world.player.dimension = (union vector3){0.4f, 3, 0.4f};
 }
 
 /**
@@ -59,36 +67,38 @@ void sln_init(
  * @param app Game information
  */
 void sln_update(
-    struct sln_app app
+    struct sln_app *app
 ){
-    float rotcos = cosf(game.view.rotation.y);
-    float rotsin = sinf(game.view.rotation.y);
+    struct sln_state *game = &app->game;
 
-    union vector2 move = app.controls.move;
-    union vector2 look = app.controls.look;
+    float rotcos = cosf(game->view.rotation.y);
+    float rotsin = sinf(game->view.rotation.y);
 
-    game.view.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
-    game.view.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
-    game.view.position.y = -3;
-    game.view.scale = (union vector3){1, 1, 1};
+    union vector2 move = app->controls.move;
+    union vector2 look = app->controls.look;
 
-    game.view.rotation.y += look.x / 80.0f;
-    game.view.rotation.x += -look.y / 80.0f;
+    game->view.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
+    game->view.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
+    game->view.position.y = -3;
+    game->view.scale = (union vector3){1, 1, 1};
 
-    if (game.view.rotation.x > DEG_TO_RAD(90))
-        game.view.rotation.x = DEG_TO_RAD(90);
-    else if (game.view.rotation.x < -DEG_TO_RAD(90))
-        game.view.rotation.x = -DEG_TO_RAD(90);
+    game->view.rotation.y += look.x / 80.0f;
+    game->view.rotation.x += -look.y / 80.0f;
 
-    game.physics_world.player.centre.x = game.view.position.x;
-    game.physics_world.player.centre.y = game.view.position.y;
-    game.physics_world.player.centre.z = game.view.position.z;
+    if (game->view.rotation.x > DEG_TO_RAD(90))
+        game->view.rotation.x = DEG_TO_RAD(90);
+    else if (game->view.rotation.x < -DEG_TO_RAD(90))
+        game->view.rotation.x = -DEG_TO_RAD(90);
 
-    physics_run(&game.physics_world);
+    game->physics_world.player.centre.x = game->view.position.x;
+    game->physics_world.player.centre.y = game->view.position.y;
+    game->physics_world.player.centre.z = game->view.position.z;
 
-    game.view.position.x = game.physics_world.player.centre.x;
-    game.view.position.y = game.physics_world.player.centre.y;
-    game.view.position.z = game.physics_world.player.centre.z;
+    physics_run(&game->physics_world);
 
-    graphics_render(&game.graphics, app, game.view, game.graphics_world);
+    game->view.position.x = game->physics_world.player.centre.x;
+    game->view.position.y = game->physics_world.player.centre.y;
+    game->view.position.z = game->physics_world.player.centre.z;
+
+    graphics_render(&game->graphics, *app, game->view, game->graphics_world);
 }

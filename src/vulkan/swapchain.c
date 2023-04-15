@@ -26,6 +26,10 @@ void vk_create_swapchain(
     create_info.imageExtent.height = extent.height;
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    create_info.clipped = 1;
 
     uint32_t fams[] = {
         families.type.graphics,
@@ -39,11 +43,6 @@ void vk_create_swapchain(
         create_info.pQueueFamilyIndices = fams;
         create_info.queueFamilyIndexCount = SIZEOF_ARRAY(fams);
     }
-
-    create_info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-    create_info.clipped = 1;
 
     vkCreateSwapchainKHR(device, &create_info, 0, swapchain);
 }
@@ -79,7 +78,7 @@ void vk_create_framebuffer(
 }
 
 /**
- * @brief Creates views of all framebuffers
+ * @brief Creates views of all framebuffers TODO:
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
@@ -91,13 +90,14 @@ void vk_create_framebuffer(
  */
 void vk_get_swapchain_images(
     VkDevice device,
-    VkPhysicalDevice pd,
     VkSwapchainKHR swapchain,
     VkSurfaceFormatKHR surface_format,
     VkExtent2D extent,
     VkRenderPass render_pass,
+    VkImageView depth_view,
     struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT]
 ){
+    // TODO: this function does too much
     uint32_t image_count;
     vkGetSwapchainImagesKHR(device, swapchain, &image_count, 0);
     if (image_count != SLN_FRAMEBUFFER_COUNT)
@@ -105,11 +105,6 @@ void vk_get_swapchain_images(
 
     VkImage *images = malloc(image_count * sizeof(VkImage));
     vkGetSwapchainImagesKHR(device, swapchain, &image_count, images);
-
-    struct vk_image depth_image = vk_create_depth_buffer(device, pd);
-
-    VkImageView depth_view = vk_get_image_view(device, depth_image.image,
-        VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     for (uint32_t i = 0; i < SLN_FRAMEBUFFER_COUNT; i++) {
         framebuffers[i].view = vk_get_image_view(device, images[i],

@@ -34,8 +34,12 @@ struct graphics_state graphics_init(
     vk_create_command_pool(s.device, s.queue_family, &s.command_pool);
     vk_create_command_buffer(s.device, s.command_pool, &s.command_buffer);
 
-    vk_get_swapchain_images(s.device, s.physical_device, s.swapchain,
-        s.surface_format, s.extent, s.render_pass, s.framebuffers);
+    s.depth_image = vk_create_depth_buffer(s.device, s.extent,
+        s.physical_device);
+    s.depth_view = vk_get_image_view(s.device, s.depth_image.image,
+        VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_get_swapchain_images(s.device, s.swapchain, s.surface_format, s.extent,
+        s.render_pass, s.depth_view, s.framebuffers);
 
     vk_create_semaphore(s.device, &s.image_ready_semaphore);
     vk_create_semaphore(s.device, &s.render_ready_semaphore);
@@ -77,10 +81,10 @@ struct graphics_state graphics_init(
     // TODO: tmp shadows
     vk_create_shadow_render_pass(s.device, &s.shadow_render_pass);
 
-    s.depth_image = vk_create_shadow_depth_buffer(s.device,
+    s.shadow_image = vk_create_shadow_depth_buffer(s.device,
         s.physical_device);
 
-    VkImageView depth_view = vk_get_image_view(s.device, s.depth_image.image,
+    VkImageView depth_view = vk_get_image_view(s.device, s.shadow_image.image,
         VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VkExtent2D ex = {VK_SHADOW_WIDTH, VK_SHADOW_HEIGHT};
@@ -103,4 +107,44 @@ struct graphics_state graphics_init(
     sln_close_file(shadow_fragment_file);
 
     return s;
+}
+
+/**
+ * @brief TODO:
+ * 
+ * @param state 
+ * @param width 
+ * @param height 
+ */
+void graphics_resize(
+    struct graphics_state *s
+){
+    VkExtent2D extent;
+    vk_calculate_extent(s->physical_device, s->surface, &extent);
+
+    if (s->extent.width == extent.width && s->extent.height == extent.height)
+        return;
+    
+    s->extent = extent;
+
+    vkDeviceWaitIdle(s->device);
+    vkDestroyFramebuffer(s->device, s->framebuffers[0].framebuffer, 0);
+    vkDestroyFramebuffer(s->device, s->framebuffers[1].framebuffer, 0);
+    vkDestroyImageView(s->device, s->framebuffers[0].view, 0);
+    vkDestroyImageView(s->device, s->framebuffers[1].view, 0);
+    vkDestroyImageView(s->device, s->depth_view, 0);
+    vkDestroyImage(s->device, s->depth_image.image, 0);
+    vkFreeMemory(s->device, s->depth_image.memory, 0);
+
+    vkDestroySwapchainKHR(s->device, s->swapchain, 0);
+
+    vk_create_swapchain(s->device, s->surface, s->surface_format, s->extent,
+        s->queue_family, &s->swapchain);
+
+    s->depth_image = vk_create_depth_buffer(s->device, s->extent,
+        s->physical_device);
+    s->depth_view = vk_get_image_view(s->device, s->depth_image.image,
+        VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_get_swapchain_images(s->device, s->swapchain, s->surface_format,
+        s->extent, s->render_pass, s->depth_view, s->framebuffers);
 }
