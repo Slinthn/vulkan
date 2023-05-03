@@ -3,6 +3,7 @@ from array import array
 import json
 import math
 
+
 if len(sys.argv) != 3:
     print(f"ERROR: Syntax: py {sys.argv[0]} input_file output_file")
     exit()

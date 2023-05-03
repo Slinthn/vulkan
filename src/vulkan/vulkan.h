@@ -164,6 +164,10 @@ struct graphics_state {
 #include "win64.c"
 #endif  // SLN_WIN64
 
+#ifdef SLN_X11
+#include "x11.c"
+#endif  // SLN_X11
+
 #include "buffer.c"
 #include "descriptor.c"
 #include "pipeline.c"

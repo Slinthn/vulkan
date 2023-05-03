@@ -90,7 +90,7 @@ struct vk_buffer vk_create_vertex_buffer(
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    uint8_t *data_ptr;
+    void *data_ptr;
     vkMapMemory(device, buffer.memory, 0, VK_WHOLE_SIZE, 0, &data_ptr);
     memcpy(data_ptr, data, data_size);
     vkUnmapMemory(device, buffer.memory);
@@ -121,7 +121,7 @@ struct vk_index_buffer vk_create_index_buffer(
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    uint8_t *data_ptr;
+    void *data_ptr;
     vkMapMemory(device, buffer.buffer.memory, 0, VK_WHOLE_SIZE, 0, &data_ptr);
     memcpy(data_ptr, indices, data_size);
     vkUnmapMemory(device, buffer.buffer.memory);

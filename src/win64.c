@@ -15,6 +15,15 @@
 #include "math/math.h"
 #include "rawinput/rawinput.h"
 
+struct user_controls {  // TODO: move somewhere else
+  union vector2 move;
+  union vector2 look;
+  uint64_t actions;
+  uint64_t is_controller;
+  uint8_t keypress[4];
+  uint32_t unused0;
+};
+
 #include "game.c"
 
 /**

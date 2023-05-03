@@ -23,3 +23,4 @@ void vk_win64(
 
     vkCreateWin32SurfaceKHR(instance, &create_info, 0, surface);
 }
+

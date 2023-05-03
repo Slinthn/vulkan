@@ -291,3 +291,4 @@ void graphics_render(
 
     vk_render_end(*state);
 }
+

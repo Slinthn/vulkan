@@ -1,10 +1,14 @@
 #define SLN_WINDOW_WIDTH 1280
 #define SLN_WINDOW_HEIGHT 720
-#define SLN_FRAMEBUFFER_COUNT 2
+#define SLN_FRAMEBUFFER_COUNT 3  // TODO: temp 3 for linux
 
 #ifdef SLN_VULKAN
 #pragma warning(push, 0)
+#ifdef SLN_WIN64
 #define VK_USE_PLATFORM_WIN32_KHR
+#elif defined(SLN_X11)
+#define VK_USE_PLATFORM_XCB_KHR
+#endif
 #include <vulkan/vulkan.h>
 #pragma warning(pop)
 #endif  // SLN_VULKAN

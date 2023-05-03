@@ -22,8 +22,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
         | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
     if (severity & check_bits) {
+#ifdef SLN_WIN64
         OutputDebugString(callback_data->pMessage);
         OutputDebugString("\n");
+#endif
+#ifdef SLN_X11
+        printf("%s\n", callback_data->pMessage);
+#endif
     }
 
     return VK_FALSE;
