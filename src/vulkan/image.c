@@ -165,7 +165,7 @@ struct vk_texture vk_create_texture(
         bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    uint8_t *data_ptr;
+    void *data_ptr;
     vkMapMemory(device, staging.memory, 0,
         VK_WHOLE_SIZE, 0, &data_ptr);
 

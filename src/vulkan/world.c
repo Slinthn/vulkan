@@ -65,7 +65,7 @@ struct vk_texture graphics_load_simg(
 
 struct graphics_world graphics_load_sw(
     struct graphics_state state,
-    struct sw_world world
+    struct sw_world world  // TODO: issue here?? POINTER?
 ){
     struct graphics_world gworld = {0};
 
@@ -92,3 +92,4 @@ struct graphics_world graphics_load_sw(
 
     return gworld;
 }
+

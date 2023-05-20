@@ -14,8 +14,11 @@ void vk_create_instance(
         "VK_EXT_debug_utils",
 #endif  // SLN_DEBUG
 #ifdef SLN_WIN64
-        "VK_KHR_win32_surface"
+        "VK_KHR_win32_surface",
 #endif  // SLN_WIN64
+#ifdef SLN_X11
+        "VK_KHR_xcb_surface",
+#endif  // SLN_X11
     };
 
     VkApplicationInfo app_info = {0};
@@ -26,7 +29,7 @@ void vk_create_instance(
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app_info;
     create_info.enabledExtensionCount = SIZEOF_ARRAY(vk_extensions);
-    create_info.ppEnabledExtensionNames = vk_extensions;
+    create_info.ppEnabledExtensionNames = (const char *const *)vk_extensions;
 
 #ifdef SLN_DEBUG
     char *layers[] = {
@@ -34,7 +37,7 @@ void vk_create_instance(
     };
 
     create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
-    create_info.ppEnabledLayerNames = layers;
+    create_info.ppEnabledLayerNames = (const char *const *)layers;
 
     VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
     vk_populate_debug_struct(&messenger_create_info);
@@ -114,7 +117,7 @@ void vk_create_device(
     create_info.queueCreateInfoCount = SIZEOF_ARRAY(qf.families);
     create_info.pQueueCreateInfos = queue_info;
     create_info.enabledExtensionCount = SIZEOF_ARRAY(extensions);
-    create_info.ppEnabledExtensionNames = extensions;
+    create_info.ppEnabledExtensionNames = (const char *const *)extensions;
     create_info.pEnabledFeatures = 0;
 
     vkCreateDevice(pd, &create_info, 0, device);

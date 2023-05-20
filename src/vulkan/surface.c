@@ -14,6 +14,8 @@ void vk_initialise_surface(
 ){
 #ifdef SLN_WIN64
     vk_win64(instance, appsurface, surface);
+#elif defined(SLN_X11)
+    vk_x11(instance, appsurface, surface);
 #else
     #error "No Vulkan surface has been selected."
 #endif
@@ -75,3 +77,4 @@ void vk_calculate_extent(
     extent->height = min(surface_caps.maxImageExtent.height,
             max(VK_FRAMEBUFFER_HEIGHT, surface_caps.minImageExtent.height));
 }
+
