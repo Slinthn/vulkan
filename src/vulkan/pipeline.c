@@ -45,6 +45,7 @@ void vk_create_graphics_pipeline(
     VkPipelineShaderStageCreateInfo fragment_stage,
     VkRenderPass render_pass,
     VkPipelineLayout pipeline_layout,
+    VkCullModeFlags culling,
     OUT VkPipeline *pipeline
 ){
     VkVertexInputBindingDescription bind_desc = {0};
@@ -96,7 +97,7 @@ void vk_create_graphics_pipeline(
     rast.rasterizerDiscardEnable = 0;
     rast.polygonMode = VK_POLYGON_MODE_FILL;
     rast.lineWidth = 1;
-    rast.cullMode = VK_CULL_MODE_BACK_BIT;
+    rast.cullMode = culling;
     rast.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rast.depthBiasEnable = 0;
 

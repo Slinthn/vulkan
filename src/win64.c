@@ -99,8 +99,8 @@ DWORD win_game_loop(
             fps = 0;
             QueryPerformanceCounter((LARGE_INTEGER *)&counter);
         }
-    }
 #endif  // SLN_DEBUG
+    }
 }
 
 

@@ -6,8 +6,8 @@
 #define VK_FRAMEBUFFER_WIDTH 1280
 #define VK_FRAMEBUFFER_HEIGHT 720
 
-#define VK_SHADOW_WIDTH 1000
-#define VK_SHADOW_HEIGHT 1000
+#define VK_SHADOW_WIDTH 2000
+#define VK_SHADOW_HEIGHT 2000
 
 union vk_queue_family {
     struct {
@@ -158,6 +158,7 @@ struct graphics_state {
     VkPipeline shadow_pipeline;
     VkFramebuffer shadow_framebuffer;
     VkRenderPass shadow_render_pass;
+    VkSampler shadow_sampler;
 };
 
 #ifdef SLN_WIN64

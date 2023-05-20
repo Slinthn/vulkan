@@ -39,7 +39,8 @@ struct vk_shader vk_create_shader(
     uint64_t vertex_size,
     void *fragment_data,
     uint64_t fragment_size,
-    VkPipelineLayout pipeline_layout
+    VkPipelineLayout pipeline_layout,
+    VkCullModeFlags culling
 ){
     struct vk_shader shader = {0};
 
@@ -57,7 +58,7 @@ struct vk_shader vk_create_shader(
     vk_create_shader_module(device, fragment_data, fragment_size, &fs.module);
 
     vk_create_graphics_pipeline(device, vs, fs, render_pass, pipeline_layout,
-        &shader.pipeline);
+        culling, &shader.pipeline);
 
     return shader;
 }

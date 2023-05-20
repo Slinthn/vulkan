@@ -11,6 +11,10 @@
     {
       "name": "shelf",
       "file": "shelf.sm"
+    },
+    {
+      "name": "vending",
+      "file": "vending.sm"
     }
   ],
 
@@ -22,6 +26,10 @@
     {
       "name": "wood",
       "file": "wood.simg"
+    },
+    {
+      "name": "vending",
+      "file": "vending.simg"
     }
   ],
 
@@ -106,6 +114,13 @@
     {
       "model": "shop",
       "texture": "wood"
+    },
+
+
+    {
+      "model": "vending",
+      "texture": "vending",
+      "position": [0, 0, 0]
     }
   ],
 

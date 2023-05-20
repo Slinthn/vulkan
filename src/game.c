@@ -49,10 +49,7 @@ void sln_init(
 ){
     app->game.graphics = graphics_init(surface);
 
-    // TODO: no good
-    app->resources.world = sln_load_sw(/*graphics.device, graphics.physical_device,
-        graphics.command_pool, graphics.queue.type.graphics, graphics.sampler,
-        graphics.pool, graphics.set_layout[1], */"world.sw");
+    app->resources.world = sln_load_sw("world.sw");
 
     app->game.graphics_world = graphics_load_sw(app->game.graphics,
         app->resources.world);
@@ -79,7 +76,7 @@ void sln_update(
 
     game->view.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
     game->view.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
-    game->view.position.y = -3;
+    game->view.position.y = -5;
     game->view.scale = (union vector3){1, 1, 1};
 
     game->view.rotation.y += look.x / 80.0f;

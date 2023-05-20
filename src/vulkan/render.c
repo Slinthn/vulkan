@@ -264,11 +264,11 @@ void graphics_render(
     mat4_transform(&buf0.view, view);
 
     mat4_orthographic(&buf0.camera_projection,
-        -100, 100, -100, 100, 1, 40.0f);
+        -20, 20, -20, 20, 1, 30.0f);
 
     struct transform camera_view = {0};
-    camera_view.position = (union vector3){10, -20, 0};
-    camera_view.rotation = (union vector3){-DEG_TO_RAD(70), 0, 0};
+    camera_view.position = (union vector3){0, -20, 0};
+    camera_view.rotation = (union vector3){-DEG_TO_RAD(90), -DEG_TO_RAD(20), 0};
     camera_view.scale = (union vector3){1, 1, 1};
 
     mat4_transform(&buf0.camera_view, camera_view);

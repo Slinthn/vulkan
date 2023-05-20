@@ -234,17 +234,38 @@ struct vk_texture vk_create_texture(
 }
 
 /**
- * @brief Create a sampler for a texture
+ * @brief Create a sampler for a texture TODO:
  * 
  * @param device Vulkan device
  * @return VkSampler Vulkan sampler 
  */
-VkSampler vk_create_sampler(
+VkSampler vk_create_nearest_sampler(
     VkDevice device
 ){
     VkSamplerCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    create_info.magFilter = VK_FILTER_LINEAR;
+    create_info.magFilter = VK_FILTER_NEAREST;  // TODO: parameter?
+    create_info.minFilter = VK_FILTER_NEAREST;
+    create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    create_info.mipLodBias = 1;
+
+    VkSampler sampler;
+    vkCreateSampler(device, &create_info, 0, &sampler);
+    return sampler;
+}
+
+/**
+ * @brief Create a sampler for a texture TODO:
+ * 
+ * @param device Vulkan device
+ * @return VkSampler Vulkan sampler 
+ */
+VkSampler vk_create_linear_sampler(
+    VkDevice device
+){
+    VkSamplerCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    create_info.magFilter = VK_FILTER_LINEAR;  // TODO: parameter?
     create_info.minFilter = VK_FILTER_LINEAR;
     create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     create_info.mipLodBias = 1;

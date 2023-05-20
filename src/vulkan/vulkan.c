@@ -45,7 +45,7 @@ struct graphics_state graphics_init(
     vk_create_semaphore(s.device, &s.render_ready_semaphore);
     vk_create_fence(s.device, &s.render_ready_fence);
 
-    s.sampler = vk_create_sampler(s.device);
+    s.sampler = vk_create_nearest_sampler(s.device);
 
     vk_create_descriptor_pool(s.device, &s.pool);
 
@@ -76,7 +76,7 @@ struct graphics_state graphics_init(
 
     s.shader = vk_create_shader(s.device, s.render_pass, vertex_file.data,
         vertex_file.allocated_size, fragment_file.data,
-        fragment_file.allocated_size, s.pipeline_layout);
+        fragment_file.allocated_size, s.pipeline_layout, VK_CULL_MODE_BACK_BIT);
 
     // TODO: tmp shadows
     vk_create_shadow_render_pass(s.device, &s.shadow_render_pass);
@@ -95,12 +95,16 @@ struct graphics_state graphics_init(
     s.shadow_pipeline = vk_create_shader(s.device, s.shadow_render_pass,
         shadow_vertex_file.data,
         shadow_vertex_file.allocated_size, shadow_fragment_file.data,
-        shadow_fragment_file.allocated_size, s.pipeline_layout).pipeline;
+        shadow_fragment_file.allocated_size, s.pipeline_layout,
+        VK_CULL_MODE_FRONT_BIT).pipeline;
 
     vk_allocate_descriptor_sets(s.device, s.pool, &s.set_layout[2], 1,
         &s.shadow_set);
 
-    vk_update_descriptor_set1(s.device, s.sampler, depth_view, s.shadow_set);
+
+    s.shadow_sampler = vk_create_linear_sampler(s.device);
+
+    vk_update_descriptor_set1(s.device, s.shadow_sampler, depth_view, s.shadow_set);
 
     sln_close_file(vertex_file);
     sln_close_file(fragment_file);
