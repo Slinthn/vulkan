@@ -1,15 +1,15 @@
 /**
- * @brief Create a Vulkan pipeline layout TODO:
+ * @brief Create a Vulkan pipeline layout
  * 
  * @param device Vulkan device
- * @param set_layout Returns the created set layout
- * @param pipeline Returns the created pipeline layout
+ * @param set_layouts Array of set layouts
+ * @param set_layout_count Number of elements in set_layouts
+ * @return VkPipelineLayout New pipeline layout
  */
-void vk_create_pipeline_layout(
+VkPipelineLayout vk_create_pipeline_layout(
     VkDevice device,
     VkDescriptorSetLayout *set_layouts,
-    uint32_t set_layout_count,
-    OUT VkPipelineLayout *pipeline
+    uint32_t set_layout_count
 ){
     VkPushConstantRange push_constant = {0};
     push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -22,31 +22,28 @@ void vk_create_pipeline_layout(
     create_info.pushConstantRangeCount = 1;
     create_info.pPushConstantRanges = &push_constant;
 
-    vkCreatePipelineLayout(device, &create_info, 0, pipeline);
+    VkPipelineLayout pipeline;
+    vkCreatePipelineLayout(device, &create_info, 0, &pipeline);
+    return pipeline;
 }
 
 /**
- * @brief Creates a Vulkan graphics pipeline TODO:
+ * @brief Create a Vulkan graphics pipeline
  * 
  * @param device Vulkan device
- * @param physical_device Vulkan physical device
  * @param vertex_stage Vertex shader
  * @param fragment_stage Fragment shader
  * @param render_pass Vulkan render pass to attach pipeline to
- * @param pipeline Returns the created graphics pipeline
- * @param pipeline_layout Returns the created pipeline layout
- * @param descriptor_set Returns the created descriptor set
- * @param uniform_buffer0 Returns the created uniform buffer 0
- * @param uniform_buffer1 Returns the created uniform buffer 1
+ * @param pipeline_layout Vulkan pipeline layout to use
+ * @param culling Cull type
  */
-void vk_create_graphics_pipeline(
+VkPipeline vk_create_graphics_pipeline(
     VkDevice device,
     VkPipelineShaderStageCreateInfo vertex_stage,
     VkPipelineShaderStageCreateInfo fragment_stage,
     VkRenderPass render_pass,
     VkPipelineLayout pipeline_layout,
-    VkCullModeFlags culling,
-    OUT VkPipeline *pipeline
+    VkCullModeFlags culling
 ){
     VkVertexInputBindingDescription bind_desc = {0};
     bind_desc.binding = 0;
@@ -149,6 +146,8 @@ void vk_create_graphics_pipeline(
     info.layout = pipeline_layout;
     info.renderPass = render_pass;
     info.subpass = 0;
-
-    vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, 0, pipeline);
+    
+    VkPipeline pipeline;
+    vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, 0, &pipeline);
+    return pipeline;
 }

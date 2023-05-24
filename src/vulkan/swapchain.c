@@ -1,20 +1,19 @@
 /**
  * @brief Create a swapchain
  * 
- * @param state Vulkan state
+ * @param device Vulkan device
  * @param surface Vulkan surface
  * @param surface_format Vulkan surface format
  * @param extent Vulkan extent
  * @param families Queue families to use
- * @param swapchain Returns the created swapchain
+ * @return VkSwapchainKHR New Vulkan swapchain
  */
-void vk_create_swapchain(
+VkSwapchainKHR vk_create_swapchain(
     VkDevice device,
     VkSurfaceKHR surface,
     VkSurfaceFormatKHR surface_format,
     VkExtent2D extent,
-    union vk_queue_family families,
-    OUT VkSwapchainKHR *swapchain
+    union vk_queue_family families
 ){
     VkSwapchainCreateInfoKHR create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -44,26 +43,27 @@ void vk_create_swapchain(
         create_info.queueFamilyIndexCount = SIZEOF_ARRAY(fams);
     }
 
-    vkCreateSwapchainKHR(device, &create_info, 0, swapchain);
+    VkSwapchainKHR swapchain;
+    vkCreateSwapchainKHR(device, &create_info, 0, &swapchain);
+    return swapchain;
 }
 
 /**
- * @brief Create a Vulkan framebuffer TODO:
+ * @brief Create a Vulkan framebuffer
  * 
  * @param device Vulkan device
  * @param extent Dimensions of framebuffer
  * @param render_pass Render pass
- * @param colour_view Framebuffer view
- * @param depth_view Depth buffer view
- * @param framebuffer Returns the framebuffer
+ * @param views Array of Vulkan image views to apply to the framebuffer
+ * @param view_count Number of elements in views
+ * @return VkFramebuffer New Vulkan framebuffer
  */
-void vk_create_framebuffer(
+VkFramebuffer vk_create_framebuffer(
     VkDevice device,
     VkExtent2D extent,
     VkRenderPass render_pass,
-    uint32_t view_count,
     VkImageView *views,
-    OUT VkFramebuffer *framebuffer
+    uint32_t view_count
 ){
     VkFramebufferCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -74,18 +74,20 @@ void vk_create_framebuffer(
     create_info.height = extent.height;
     create_info.layers = 1;
 
-    vkCreateFramebuffer(device, &create_info, 0, framebuffer);
+    VkFramebuffer framebuffer;
+    vkCreateFramebuffer(device, &create_info, 0, &framebuffer);
+    return framebuffer;
 }
 
 /**
- * @brief Creates views of all framebuffers TODO:
+ * @brief Creates views of all framebuffers TODO: can't return array of size
  * 
  * @param device Vulkan device
- * @param physical_device Vulkan physical device
  * @param swapchain Vulkan swapchain
  * @param surface_format Vulkan surface format
  * @param extent Width and height
  * @param render_pass Vulkan render pass
+ * @param depth_view Vulkan depth image view
  * @param framebuffers Returns the created framebuffer information
  */
 void vk_get_swapchain_images(
@@ -115,8 +117,8 @@ void vk_get_swapchain_images(
             depth_view
         };
 
-        vk_create_framebuffer(device, extent, render_pass,
-            SIZEOF_ARRAY(views), views, &framebuffers[i].framebuffer);
+        framebuffers[i].framebuffer = vk_create_framebuffer(device, extent,
+            render_pass, views, SIZEOF_ARRAY(views));
     }
 
     free(images);

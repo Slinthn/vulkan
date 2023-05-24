@@ -2,15 +2,16 @@
  * @brief Create a Vulkan render pass
  * 
  * @param device Vulkan device
- * @param surface_format Vulkan surface format
- * @param render_pass Returns the created render pass
+ * @param attachments Array of vulkan attachment descriptions
+ * @param attachment_count Number of elements in attachments
+ * @param subpass Vulkan subpass description
+ * @return VkRenderPass New Vulkan render pass
  */
-void vk_create_render_pass(
+VkRenderPass vk_create_render_pass(
     VkDevice device,
-    uint32_t attachment_count,
     VkAttachmentDescription *attachments,
-    VkSubpassDescription *subpass,
-    OUT VkRenderPass *render_pass
+    uint32_t attachment_count,
+    VkSubpassDescription *subpass
 ){
     VkSubpassDependency dependency = {0};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -32,7 +33,9 @@ void vk_create_render_pass(
     create_info.dependencyCount = 1;
     create_info.pDependencies = &dependency;
 
-    vkCreateRenderPass(device, &create_info, 0, render_pass);
+    VkRenderPass render_pass;
+    vkCreateRenderPass(device, &create_info, 0, &render_pass);
+    return render_pass;
 }
 
 /**
@@ -42,10 +45,9 @@ void vk_create_render_pass(
  * @param surface_format 
  * @param render_pass 
  */
-void vk_create_main_render_pass(
+VkRenderPass vk_create_main_render_pass(
     VkDevice device,
-    VkSurfaceFormatKHR surface_format,
-    OUT VkRenderPass *render_pass
+    VkSurfaceFormatKHR surface_format
 ){
     VkAttachmentDescription att[2] = {0};
     
@@ -83,13 +85,11 @@ void vk_create_main_render_pass(
     subpass.pColorAttachments = &colour_reference;
     subpass.pDepthStencilAttachment = &depth_reference;
 
-    vk_create_render_pass(device, SIZEOF_ARRAY(att), att, &subpass,
-        render_pass);
+    return vk_create_render_pass(device, att,  SIZEOF_ARRAY(att), &subpass);
 }
 
-void vk_create_shadow_render_pass(
-    VkDevice device,
-    OUT VkRenderPass *render_pass
+VkRenderPass vk_create_shadow_render_pass(
+    VkDevice device
 ){
      // Depth stencil
     VkAttachmentDescription att = {0};
@@ -111,5 +111,5 @@ void vk_create_shadow_render_pass(
     subpass.colorAttachmentCount = 0;
     subpass.pDepthStencilAttachment = &depth_reference;
 
-    vk_create_render_pass(device, 1, &att, &subpass, render_pass);
+    return vk_create_render_pass(device, &att, 1, &subpass);
 }

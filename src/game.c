@@ -3,14 +3,19 @@
 #define SLN_FRAMEBUFFER_COUNT 3  // TODO: temp 3 for linux
 
 #ifdef SLN_VULKAN
-#pragma warning(push, 0)
+
 #ifdef SLN_WIN64
 #define VK_USE_PLATFORM_WIN32_KHR
-#elif defined(SLN_X11)
+#endif  // SLN_VULKAN
+
+#ifdef SLN_X11
 #define VK_USE_PLATFORM_XCB_KHR
-#endif
+#endif  // SLN_X11
+
+#pragma warning(push, 0)
 #include <vulkan/vulkan.h>
 #pragma warning(pop)
+
 #endif  // SLN_VULKAN
 
 #include "file.c"
@@ -39,8 +44,6 @@ struct sln_app {
 
 #include "vulkan/world.c"
 #include "vulkan/render.c"
-
-// TODO: daz no good...
 
 /**
  * @brief Initialise the game TODO:

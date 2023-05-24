@@ -8,19 +8,18 @@ struct graphics_surface {
  * 
  * @param instance Vulkan instance
  * @param appsurface Application surface
- * @param surface Pointer to Vulkan surface handle in which the resulting
- *     surface is returned
+ * @return VkSurfaceKHR New Vulkan surface
  */
-void vk_x11(
+VkSurfaceKHR vk_x11(
     VkInstance instance,
-    struct graphics_surface appsurface,
-    OUT VkSurfaceKHR *surface
+    struct graphics_surface appsurface
 ){
     VkXcbSurfaceCreateInfoKHR create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     create_info.connection = appsurface.connection;
     create_info.window = appsurface.window;
 
-    vkCreateXcbSurfaceKHR(instance, &create_info, 0, surface);
+    VkSurfaceKHR surface;
+    vkCreateXcbSurfaceKHR(instance, &create_info, 0, &surface);
+    return surface;
 }
-

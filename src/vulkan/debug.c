@@ -26,9 +26,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
         OutputDebugString(callback_data->pMessage);
         OutputDebugString("\n");
 #endif
-#ifdef SLN_X11
-        printf("%s\n", callback_data->pMessage);
-#endif
+//#ifdef SLN_X11
+        FILE *file = fopen("debug.txt", "a");
+        fwrite(callback_data->pMessage, strlen(callback_data->pMessage), 1,
+            file);
+        fwrite("\n", 1, 1, file);
+        fclose(file);
+//#endif
     }
 
     return VK_FALSE;
@@ -37,41 +41,44 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 /**
  * @brief Populate a VkDebugUtilsMessengerCreateInfoEXT structure
  * 
- * @param ci Pointer in which populated structure will be returned
+ * @return VkDebugUtilsMessengerCreateInfoEXT Populated structure
  */
-void vk_populate_debug_struct(
-    OUT VkDebugUtilsMessengerCreateInfoEXT *ci
+VkDebugUtilsMessengerCreateInfoEXT vk_populate_debug_struct(
+    void
 ){
-    *ci = (VkDebugUtilsMessengerCreateInfoEXT){0};
-    ci->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    ci->messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+    VkDebugUtilsMessengerCreateInfoEXT ci
+        = (VkDebugUtilsMessengerCreateInfoEXT){0};
+    ci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 
-    ci->messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+    ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
         | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
 
-    ci->pfnUserCallback = vk_debug_callback;
+    ci.pfnUserCallback = vk_debug_callback;
+    return ci;
 }
 
 /**
  * @brief Initialise the debug messaging function of Vulkan
  * 
  * @param instance Vulkan instance
- * @param debug_messenger Return handle for the created debug messenger
+ * @return VkDebugUtilsMessengerEXT Handle for the created debug messenger
  */
-void vk_create_debug_messenger(
-    VkInstance instance,
-    OUT VkDebugUtilsMessengerEXT *debug_messenger
+VkDebugUtilsMessengerEXT vk_create_debug_messenger(
+    VkInstance instance
 ){
-    VkDebugUtilsMessengerCreateInfoEXT create_info;
-    vk_populate_debug_struct(&create_info);
+    VkDebugUtilsMessengerCreateInfoEXT create_info = vk_populate_debug_struct();
 
     PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
         (PFN_vkCreateDebugUtilsMessengerEXT)(void *)vkGetInstanceProcAddr(
         instance, "vkCreateDebugUtilsMessengerEXT");
-    vkCreateDebugUtilsMessengerEXT(instance, &create_info, 0, debug_messenger);
+    
+    VkDebugUtilsMessengerEXT debug_messenger;
+    vkCreateDebugUtilsMessengerEXT(instance, &create_info, 0, &debug_messenger);
+    return debug_messenger;
 }

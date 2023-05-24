@@ -3,8 +3,9 @@
  * 
  * @param world Physics world to calculate
  */
-void physics_run(struct physics_world *world)
-{
+void physics_run(
+    struct physics_world *world
+){
     for (uint32_t i = 0; i < SIZEOF_ARRAY(world->cuboid); i++)
         if (world->cuboid[i].flags & PHYSICS_FLAG_EXISTS)
             physics_collision_resolve(world->cuboid[i], &world->player);

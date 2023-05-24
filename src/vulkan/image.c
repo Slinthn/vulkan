@@ -3,9 +3,9 @@
  * 
  * @param device Vulkan device
  * @param image Image to use
- * @param format Swapchain colour format
+ * @param format Image colour format
  * @param flags Flags to do with how the image should be viewed
- * @return VkImageView Created image view
+ * @return VkImageView New Vulkan image view
  */
 VkImageView vk_get_image_view(
     VkDevice device,
@@ -36,12 +36,12 @@ VkImageView vk_get_image_view(
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
- * @param format Format of the pixels on the image
- * @param width Width of the image
- * @param height Height of the image
- * @param usage Usage flags, how the image will be used
- * @param flags Memory flags in order to find a suitable memory property
- * @return struct vk_image Created image information
+ * @param format Image colour format
+ * @param width Image width
+ * @param height Image height
+ * @param usage Image usage flags
+ * @param flags Image memory flags
+ * @return struct vk_image New image
  */
 struct vk_image vk_create_image(
     VkDevice device,
@@ -49,7 +49,7 @@ struct vk_image vk_create_image(
     VkFormat format,
     uint32_t width,
     uint32_t height,
-    VkImageUsageFlagBits usage,
+    VkImageUsageFlags usage,
     VkMemoryPropertyFlags flags
 ){
     struct vk_image image = {0};
@@ -74,14 +74,11 @@ struct vk_image vk_create_image(
     VkMemoryRequirements requirements;
     vkGetImageMemoryRequirements(device, image.image, &requirements);
 
-    VkPhysicalDeviceMemoryProperties properties;
-    vkGetPhysicalDeviceMemoryProperties(physical_device, &properties);
-
     VkMemoryAllocateInfo allocate_info = {0};
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex =
-        vk_find_suitable_memory_type(requirements, properties, flags);
+        vk_find_suitable_memory_type(physical_device, requirements, flags);
 
     vkAllocateMemory(device, &allocate_info, 0, &image.memory);
     vkBindImageMemory(device, image.image, image.memory, 0);
@@ -163,7 +160,8 @@ struct vk_texture vk_create_texture(
 
     struct vk_buffer staging = vk_create_buffer(device, physical_device,
         bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void *data_ptr;
     vkMapMemory(device, staging.memory, 0,
@@ -223,7 +221,7 @@ struct vk_texture vk_create_texture(
 
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 
-    vk_allocate_descriptor_sets(device, pool, &set_layout, 1, &tex.set);
+    tex.set = vk_allocate_descriptor_sets(device, pool, &set_layout, 1);
 
     tex.image_view = vk_get_image_view(device, tex.image.image,
         VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -234,18 +232,20 @@ struct vk_texture vk_create_texture(
 }
 
 /**
- * @brief Create a sampler for a texture TODO:
+ * @brief Create a sampler for a texture
  * 
  * @param device Vulkan device
- * @return VkSampler Vulkan sampler 
+ * @param filter Image pixel filter
+ * @return VkSampler New Vulkan sampler
  */
-VkSampler vk_create_nearest_sampler(
-    VkDevice device
+VkSampler vk_create_sampler(
+    VkDevice device,
+    VkFilter filter
 ){
     VkSamplerCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    create_info.magFilter = VK_FILTER_NEAREST;  // TODO: parameter?
-    create_info.minFilter = VK_FILTER_NEAREST;
+    create_info.magFilter = filter;
+    create_info.minFilter = filter;
     create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     create_info.mipLodBias = 1;
 
@@ -255,50 +255,30 @@ VkSampler vk_create_nearest_sampler(
 }
 
 /**
- * @brief Create a sampler for a texture TODO:
- * 
- * @param device Vulkan device
- * @return VkSampler Vulkan sampler 
- */
-VkSampler vk_create_linear_sampler(
-    VkDevice device
-){
-    VkSamplerCreateInfo create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    create_info.magFilter = VK_FILTER_LINEAR;  // TODO: parameter?
-    create_info.minFilter = VK_FILTER_LINEAR;
-    create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    create_info.mipLodBias = 1;
-
-    VkSampler sampler;
-    vkCreateSampler(device, &create_info, 0, &sampler);
-    return sampler;
-}
-
-/**
- * @brief Create a depth buffer TODO:
+ * @brief Create a depth buffer
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
- * @return struct vk_image 
+ * @param extent Width and height of depth buffer
+ * @return struct vk_image New depth buffer
  */
 struct vk_image vk_create_depth_buffer(
     VkDevice device,
-    VkExtent2D extent,
-    VkPhysicalDevice pd
+    VkPhysicalDevice physical_device,
+    VkExtent2D extent
 ){
-    return vk_create_image(device, pd, VK_FORMAT_D32_SFLOAT,
+    return vk_create_image(device, physical_device, VK_FORMAT_D32_SFLOAT,
         extent.width, extent.height,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 /**
- * @brief Create a depth buffer
+ * @brief Create a depth buffer for shadows
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
- * @return struct vk_image 
+ * @return struct vk_image New shadow depth buffer
  */
 struct vk_image vk_create_shadow_depth_buffer(
     VkDevice device,

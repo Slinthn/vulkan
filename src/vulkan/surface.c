@@ -4,18 +4,16 @@
  * 
  * @param instance Vulkan instance
  * @param appsurface App surface from OS specific code
- * @param surface Pointer to Vulkan surface handle in which the resulting handle
- *     is returned
+ * @return VkSurfaceKHR New Vulkan surface
  */
-void vk_initialise_surface(
+VkSurfaceKHR vk_initialise_surface(
     VkInstance instance,
-    struct graphics_surface appsurface,
-    OUT VkSurfaceKHR *surface
+    struct graphics_surface appsurface
 ){
 #ifdef SLN_WIN64
-    vk_win64(instance, appsurface, surface);
+    return vk_win64(instance, appsurface);
 #elif defined(SLN_X11)
-    vk_x11(instance, appsurface, surface);
+    return vk_x11(instance, appsurface);
 #else
     #error "No Vulkan surface has been selected."
 #endif
@@ -24,25 +22,24 @@ void vk_initialise_surface(
 /**
  * @brief Select a suitable surface format to render on
  * 
- * @param pd Vulkan physical device
+ * @param physical_device Vulkan physical device
  * @param surface Vulkan surface
- * @param sf Handle to the surface format in which the chosen
- *     format is returned 
+ * @return VkSurfaceFormatKHR Selected Vulkan surface format
  */
-void vk_select_suitable_surface_format(
-    VkPhysicalDevice pd,
-    VkSurfaceKHR surface,
-    OUT VkSurfaceFormatKHR *sf
+VkSurfaceFormatKHR vk_select_suitable_surface_format(
+    VkPhysicalDevice physical_device,
+    VkSurfaceKHR surface
 ){
-    uint32_t sfc; 
-    vkGetPhysicalDeviceSurfaceFormatsKHR(pd, surface, &sfc, 0);
+    VkSurfaceFormatKHR sf = {0};
+    uint32_t sfc;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &sfc, 0);
     if (sfc == 0)
         FATAL_ERROR("No surface formats found!");
 
     VkSurfaceFormatKHR *sfs = malloc(sfc * sizeof(VkSurfaceFormatKHR));
-    vkGetPhysicalDeviceSurfaceFormatsKHR(pd, surface, &sfc, sfs);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &sfc, sfs);
 
-    *sf = sfs[0];
+    sf = sfs[0];
 
     for (uint32_t i = 0; i < sfc; i++) {
         VkSurfaceFormatKHR format_check = sfs[i];
@@ -50,31 +47,35 @@ void vk_select_suitable_surface_format(
             && format_check.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
         if (colour_check) {
-            *sf = format_check;
+            sf = format_check;
             break;
         }
     }
 
     free(sfs);
+    return sf;
 }
 
 /**
- * @brief Calculate a suitable width and height for the viewport and scissors
- *  TODO:
- * @param extent Returns the extent details
+ * @brief Calculate a suitable width and height for viewport and scissors
+ * 
+ * @param pd Vulkan physical device
+ * @param surface Vulkan surface
+ * @return VkExtent2D New Vulkan extent (width and height)
  */
-void vk_calculate_extent(
+VkExtent2D vk_calculate_extent(
     VkPhysicalDevice pd,
-    VkSurfaceKHR surface,
-    OUT VkExtent2D *extent
+    VkSurfaceKHR surface
 ){
+    VkExtent2D extent;
     VkSurfaceCapabilitiesKHR surface_caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pd, surface, &surface_caps);
 
-    extent->width = min(surface_caps.maxImageExtent.width,
+    extent.width = min(surface_caps.maxImageExtent.width,
             max(VK_FRAMEBUFFER_WIDTH, surface_caps.minImageExtent.width));
 
-    extent->height = min(surface_caps.maxImageExtent.height,
+    extent.height = min(surface_caps.maxImageExtent.height,
             max(VK_FRAMEBUFFER_HEIGHT, surface_caps.minImageExtent.height));
-}
 
+    return extent;
+}

@@ -2,11 +2,10 @@
  * @brief Creates a Vulkan 1.0 instance, with surface support and debug
  *     validation, if SLN_DEBUG is defined
  *
- * @param instance Pointer to vulkan instance handle in which the resulting
- *     instance is returned
+ * @return VkInstance New Vulkan instance
  */
-void vk_create_instance(
-    OUT VkInstance *instance
+VkInstance vk_create_instance(
+    void
 ){
     char *vk_extensions[] = {
         "VK_KHR_surface",
@@ -39,13 +38,15 @@ void vk_create_instance(
     create_info.enabledLayerCount = SIZEOF_ARRAY(layers);
     create_info.ppEnabledLayerNames = (const char *const *)layers;
 
-    VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
-    vk_populate_debug_struct(&messenger_create_info);
+    VkDebugUtilsMessengerCreateInfoEXT messenger_create_info
+        = vk_populate_debug_struct();
 
     create_info.pNext = &messenger_create_info;
 #endif  // SLN_DEBUG
 
-    vkCreateInstance(&create_info, 0, instance);
+    VkInstance instance;
+    vkCreateInstance(&create_info, 0, &instance);
+    return instance;
 }
 
 /**
@@ -53,13 +54,12 @@ void vk_create_instance(
  *     for the purposes of the application
  * 
  * @param instance Vulkan instance
- * @param physical_device Pointer to a physical device handle in which the
- *     resulting physical device is returned 
+ * @return VkPhysicalDevice New Vulkan physical device
  */
-void vk_select_suitable_physical_device(
-    VkInstance instance,
-    OUT VkPhysicalDevice *physical_device
+VkPhysicalDevice vk_select_suitable_physical_device(
+    VkInstance instance
 ){
+    VkPhysicalDevice physical_device = 0;
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, 0);
     if (device_count == 0)
@@ -68,7 +68,7 @@ void vk_select_suitable_physical_device(
     VkPhysicalDevice *devices = malloc(device_count * sizeof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
-    *physical_device = devices[0];
+    physical_device = devices[0];
 
     for (uint32_t i = 0; i < device_count; i++) {
         VkPhysicalDevice device_check = devices[i];
@@ -76,12 +76,13 @@ void vk_select_suitable_physical_device(
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(device_check, &properties);
         if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            *physical_device = device_check;
+            physical_device = device_check;
             break;
         }
     }
 
     free(devices);
+    return physical_device;
 }
 
 /**
@@ -89,12 +90,11 @@ void vk_select_suitable_physical_device(
  *
  * @param physical_device Vulkan physical device
  * @param qf Queue families to use when creating device
- * @param device Returns the handle to the created device
+ * @return VkDevice New Vulkan device
  */
-void vk_create_device(
-    VkPhysicalDevice pd,
-    union vk_queue_family qf,
-    OUT VkDevice *device
+VkDevice vk_create_device(
+    VkPhysicalDevice physical_device,
+    union vk_queue_family qf
 ){
     uint32_t size = SIZEOF_ARRAY(qf.families) * sizeof(VkDeviceQueueCreateInfo);
     VkDeviceQueueCreateInfo *queue_info = calloc(1, size);
@@ -120,7 +120,9 @@ void vk_create_device(
     create_info.ppEnabledExtensionNames = (const char *const *)extensions;
     create_info.pEnabledFeatures = 0;
 
-    vkCreateDevice(pd, &create_info, 0, device);
+    VkDevice device;
+    vkCreateDevice(physical_device, &create_info, 0, &device);
 
     free(queue_info);
+    return device;
 }

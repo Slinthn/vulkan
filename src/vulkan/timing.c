@@ -2,31 +2,33 @@
  * @brief Create a Vulkan semaphore
  * 
  * @param device Vulkan device
- * @param semaphore Returns the created semaphore
+ * @return VkSemaphore New Vulkan semaphore
  */
-void vk_create_semaphore(
-    VkDevice device,
-    OUT VkSemaphore *semaphore
+VkSemaphore vk_create_semaphore(
+    VkDevice device
 ){
     VkSemaphoreCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    vkCreateSemaphore(device, &create_info, 0, semaphore);
+    VkSemaphore semaphore;
+    vkCreateSemaphore(device, &create_info, 0, &semaphore);
+    return semaphore;
 }
 
 /**
  * @brief Create a Vulkan fence
  * 
  * @param device Vulkan device
- * @param fence Returns the created fence
+ * @return VkFence New Vulkan fence
  */
-void vk_create_fence(
-    VkDevice device,
-    VkFence *fence
+VkFence vk_create_fence(
+    VkDevice device
 ){
     VkFenceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    vkCreateFence(device, &create_info, 0, fence);
+    VkFence fence;
+    vkCreateFence(device, &create_info, 0, &fence);
+    return fence;
 }

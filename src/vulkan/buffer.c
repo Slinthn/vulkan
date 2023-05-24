@@ -1,25 +1,25 @@
 /**
- * @brief Select a suitable memory type for a buffer's requirements
+ * @brief Find a suitable memory type for the memory requirements
  * 
- * @param requirements The requirements of the buffer, size, alignment and
- *     memory type. Returned from vkGetBufferMemoryRequirements
- * @param properties The memory allocation types of the GPU. Returned from
- *     vkGetPhysicalDeviceMemoryProperties
- * @param required_flags Required flags for the memory type to have, i.e.
- *     which stages of the rendering pipeline can view the resource
- * @return uint32_t Returns the suitable memory index, or UINT32_MAX if none
- *     found
+ * @param physical_device Vulkan physical device
+ * @param requirements Requirements of the buffer, as gotten from
+ *     vkGetBufferMemoryRequirements or similar
+ * @param required_flags User required flags for the memory
+ * @return uint32_t The index of the element in the
+ *     VkPhysicalDeviceMemoryProperties.memoryType array, which is suitable
  */
 uint32_t vk_find_suitable_memory_type(
+    VkPhysicalDevice physical_device,
     VkMemoryRequirements requirements,
-    VkPhysicalDeviceMemoryProperties properties,
     uint32_t required_flags
 ){
+    VkPhysicalDeviceMemoryProperties properties;
+    vkGetPhysicalDeviceMemoryProperties(physical_device, &properties);
+
     for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
         VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
-        uint8_t met_requirements = requirements.memoryTypeBits & (1 << i)
-            && (flags & required_flags) == required_flags;
-        if (met_requirements)
+        if (requirements.memoryTypeBits & (1 << i)
+            && (flags & required_flags) == required_flags)
             return i;
     }
 
@@ -27,20 +27,20 @@ uint32_t vk_find_suitable_memory_type(
 }
 
 /**
- * @brief Creates a buffer
+ * @brief Creates any type of buffer
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
  * @param bytes Size of the buffer in bytes
- * @param usage Usage flag bits, i.e. the type of buffer
- * @param flags Property flag bits, how the resource can be accessed and used
- * @return struct vk_buffer Created buffer
+ * @param usage Buffer usage flag bits, combination of VkBufferUsageFlagBits
+ * @param flags Property flag bits, combination of VkMemoryPropertyFlagBits
+ * @return struct vk_buffer New buffer
  */
 struct vk_buffer vk_create_buffer(
     VkDevice device,
     VkPhysicalDevice physical_device,
     uint64_t bytes,
-    VkBufferUsageFlagBits usage,
+    VkBufferUsageFlags usage,
     VkMemoryPropertyFlags flags
 ){
     struct vk_buffer buffer = {0};
@@ -56,14 +56,11 @@ struct vk_buffer vk_create_buffer(
     VkMemoryRequirements requirements;
     vkGetBufferMemoryRequirements(device, buffer.buffer, &requirements);
 
-    VkPhysicalDeviceMemoryProperties properties;
-    vkGetPhysicalDeviceMemoryProperties(physical_device, &properties);
-
     VkMemoryAllocateInfo allocate_info = {0};
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex =
-        vk_find_suitable_memory_type(requirements, properties, flags);
+        vk_find_suitable_memory_type(physical_device, requirements, flags);
 
     vkAllocateMemory(device, &allocate_info, 0, &buffer.memory);
     vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0);
@@ -71,13 +68,14 @@ struct vk_buffer vk_create_buffer(
 }
 
 /**
- * @brief Create a vertex buffer
+ * @brief Create a vertex buffer. Automatically uploads vertex buffer data
+ *     before returning
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
  * @param data Data to insert into the vertex buffer
  * @param data_size Size of data in bytes
- * @return struct vk_buffer The created vertex buffer information
+ * @return struct vk_buffer New vertex buffer
  */
 struct vk_buffer vk_create_vertex_buffer(
     VkDevice device,
@@ -98,13 +96,13 @@ struct vk_buffer vk_create_vertex_buffer(
 }
 
 /**
- * @brief Create a index buffer
+ * @brief Create an index buffer. Uploads index data before return
  * 
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
  * @param indices Index data
- * @param index_count Number of indices (elements in the array)
- * @return struct vk_index_buffer The created index buffer information
+ * @param index_count Number of indices/elements in indices array
+ * @return struct vk_index_buffer New index buffer
  */
 struct vk_index_buffer vk_create_index_buffer(
     VkDevice device,
@@ -129,12 +127,13 @@ struct vk_index_buffer vk_create_index_buffer(
 }
 
 /**
- * @brief Create a uniform buffer
+ * @brief Create a uniform buffer. Use vk_update_uniform_buffer to update
+ *     buffer contents
  *
  * @param device Vulkan device
  * @param physical_device Vulkan physical device
  * @param data_size Size of the uniform buffer in bytes
- * @return struct vk_uniform_buffer The created uniform buffer information
+ * @return struct vk_uniform_buffer New uniform buffer
  */
 struct vk_uniform_buffer vk_create_uniform_buffer(
     VkDevice device,
@@ -159,8 +158,8 @@ struct vk_uniform_buffer vk_create_uniform_buffer(
  *     due to VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag
  * 
  * @param ub Uniform buffer to edit
- * @param data New data to overwrite. Note that the data size should equal
- *     the data size specified in the vk_uniform_buffer structure
+ * @param data New data to overwrite. Note that this parameter's size is
+ *     determined by the data_size field in the vk_uniform_buffer structure
  */
 void vk_update_uniform_buffer(
     struct vk_uniform_buffer ub,

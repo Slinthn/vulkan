@@ -13,7 +13,6 @@
 
 #include "macros.c"
 #include "math/math.h"
-#include "rawinput/rawinput.h"
 
 struct user_controls {  // TODO: move somewhere else
   union vector2 move;
@@ -24,6 +23,7 @@ struct user_controls {  // TODO: move somewhere else
   uint32_t unused0;
 };
 
+#include "rawinput/rawinput.h"
 #include "game.c"
 
 /**
