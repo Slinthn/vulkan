@@ -165,32 +165,32 @@ void vk_render_shadow(
  * @param state Vulkan state
  */
 void vk_render_end(
-    struct graphics_state state
+    struct graphics_state *state
 ){
-    vkCmdEndRenderPass(state.command_buffer);
-    vkEndCommandBuffer(state.command_buffer);
+    vkCmdEndRenderPass(state->command_buffer);
+    vkEndCommandBuffer(state->command_buffer);
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = &state.image_ready_semaphore;
+    submit_info.pWaitSemaphores = &state->image_ready_semaphore;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &state.command_buffer;
+    submit_info.pCommandBuffers = &state->command_buffer;
     submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &state.render_ready_semaphore;
+    submit_info.pSignalSemaphores = &state->render_ready_semaphore;
 
-    vkQueueSubmit(state.queue.type.graphics, 1, &submit_info,
-        state.render_ready_fence);
+    vkQueueSubmit(state->queue.type.graphics, 1, &submit_info,
+        state->render_ready_fence);
 
     VkPresentInfoKHR present_info = {0};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &state.render_ready_semaphore;
+    present_info.pWaitSemaphores = &state->render_ready_semaphore;
     present_info.swapchainCount = 1;
-    present_info.pSwapchains = &state.swapchain;
-    present_info.pImageIndices = &state.current_image_index;
+    present_info.pSwapchains = &state->swapchain;
+    present_info.pImageIndices = &state->current_image_index;
 
-    vkQueuePresentKHR(state.queue.type.present, &present_info);
+    vkQueuePresentKHR(state->queue.type.present, &present_info);
 }
 
 /**
@@ -218,9 +218,10 @@ void sln_draw_model(
         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
         constant);
 
-    vkCmdBindDescriptorSets(state->command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
-        1, &texture.set, 0, 0);
+    // TODO: temporary
+    //vkCmdBindDescriptorSets(state->command_buffer,
+    //    VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
+    //    1, &texture.set, 0, 0);
 
     vkCmdBindDescriptorSets(state->command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 2,
@@ -231,7 +232,7 @@ void sln_draw_model(
 }
 
 void graphics_render_all_objects(
-    struct graphics_state state,
+    struct graphics_state *state,
     struct vk_object objects[VK_MAX_OBJECTS]
 ){
     for (uint32_t i = 0; i < VK_MAX_OBJECTS; i++) {
@@ -240,9 +241,9 @@ void graphics_render_all_objects(
 
         struct vk_model model = *objects[i].model;
         struct vk_texture texture = *objects[i].texture;
-        state.push_constant_list.constants[i].index = i;
-        sln_draw_model(&state, model, texture,
-            &state.push_constant_list.constants[i]);
+        state->push_constant_list.constants[i].index = i;
+        sln_draw_model(state, model, texture,
+            &state->push_constant_list.constants[i]);
     }
 }
 
@@ -284,11 +285,10 @@ void graphics_render(
         return;
 
     vk_render_shadow(state);
-    graphics_render_all_objects(*state, world.objects);
+    graphics_render_all_objects(state, world.objects);
     vk_render_main(state, (float[4]){1, 0, 1, 1}, state->extent.width,
         state->extent.height);
-    graphics_render_all_objects(*state, world.objects);
+    graphics_render_all_objects(state, world.objects);
 
-    vk_render_end(*state);
+    vk_render_end(state);
 }
-

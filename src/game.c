@@ -2,6 +2,10 @@
 #define SLN_WINDOW_HEIGHT 720
 #define SLN_FRAMEBUFFER_COUNT 3  // TODO: temp 3 for linux
 
+#include "file.c"
+#include "world/world.h"
+#include "physics/physics.h"
+
 #ifdef SLN_VULKAN
 
 #ifdef SLN_WIN64
@@ -16,15 +20,26 @@
 #include <vulkan/vulkan.h>
 #pragma warning(pop)
 
+#include "vulkan/vulkan.h"
+
 #endif  // SLN_VULKAN
 
-#include "file.c"
-#include "vulkan/vulkan.h"
-#include "world/world.h"
-#include "physics/physics.h"
+#ifdef SLN_XAUDIO2
+
+#pragma warning(push, 0)
+#include <xaudio2.h>
+#pragma warning(pop)
+
+#include "xaudio2/xaudio2.h"
+
+#endif  // SLN_XAUDIO2
+
+struct sln_player {
+    struct transform tf;
+};
 
 struct sln_state {
-    struct transform view;
+    struct sln_player player;
     struct graphics_state graphics;
     struct graphics_world graphics_world;
     struct physics_world physics_world;
@@ -56,13 +71,44 @@ void sln_init(
 ){
     app->game.graphics = graphics_init(surface);
 
+    audio_init();
+
     app->resources.world = sln_load_sw("world.sw");
 
     app->game.graphics_world = graphics_load_sw(app->game.graphics,
         app->resources.world);
     app->game.physics_world = physics_load_sw(app->resources.world);
 
-    app->game.physics_world.player.dimension = (union vector3){0.4f, 3, 0.4f};
+    app->game.physics_world.player.dimension = (union vector3){0.5f, 3, 0.5f};
+}
+
+/**
+ * @brief Parse movements for the player
+ * 
+ * @param player The player
+ * @param move Position change
+ * @param look Look direction change
+ */
+void sln_player(
+    struct sln_player *player,
+    union vector2 move,
+    union vector2 look
+){
+    float rotcos = cosf(player->tf.rotation.y);
+    float rotsin = sinf(player->tf.rotation.y);
+
+    player->tf.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
+    player->tf.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
+    player->tf.position.y = -5;
+    player->tf.scale = (union vector3){1, 1, 1};
+
+    player->tf.rotation.y += look.x / 80.0f;
+    player->tf.rotation.x += -look.y / 80.0f;
+
+    if (player->tf.rotation.x > DEG_TO_RAD(90))
+        player->tf.rotation.x = DEG_TO_RAD(90);
+    else if (player->tf.rotation.x < -DEG_TO_RAD(90))
+        player->tf.rotation.x = -DEG_TO_RAD(90);
 }
 
 /**
@@ -75,34 +121,18 @@ void sln_update(
 ){
     struct sln_state *game = &app->game;
 
-    float rotcos = cosf(game->view.rotation.y);
-    float rotsin = sinf(game->view.rotation.y);
+    sln_player(&game->player, app->controls.move, app->controls.look);
 
-    union vector2 move = app->controls.move;
-    union vector2 look = app->controls.look;
-
-    game->view.position.x += (move.x * rotcos - move.y * rotsin) / 4.0f;
-    game->view.position.z += (-move.x * rotsin - move.y * rotcos) / 4.0f;
-    game->view.position.y = -5;
-    game->view.scale = (union vector3){1, 1, 1};
-
-    game->view.rotation.y += look.x / 80.0f;
-    game->view.rotation.x += -look.y / 80.0f;
-
-    if (game->view.rotation.x > DEG_TO_RAD(90))
-        game->view.rotation.x = DEG_TO_RAD(90);
-    else if (game->view.rotation.x < -DEG_TO_RAD(90))
-        game->view.rotation.x = -DEG_TO_RAD(90);
-
-    game->physics_world.player.centre.x = game->view.position.x;
-    game->physics_world.player.centre.y = game->view.position.y;
-    game->physics_world.player.centre.z = game->view.position.z;
+    game->physics_world.player.centre.x = game->player.tf.position.x;
+    game->physics_world.player.centre.y = game->player.tf.position.y;
+    game->physics_world.player.centre.z = game->player.tf.position.z;
 
     physics_run(&game->physics_world);
 
-    game->view.position.x = game->physics_world.player.centre.x;
-    game->view.position.y = game->physics_world.player.centre.y;
-    game->view.position.z = game->physics_world.player.centre.z;
+    game->player.tf.position.x = game->physics_world.player.centre.x;
+    game->player.tf.position.y = game->physics_world.player.centre.y;
+    game->player.tf.position.z = game->physics_world.player.centre.z;
 
-    graphics_render(&game->graphics, *app, game->view, game->graphics_world);
+    graphics_render(&game->graphics, *app, game->player.tf,
+        game->graphics_world);
 }

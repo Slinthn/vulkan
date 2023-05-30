@@ -1,5 +1,5 @@
 #define PI 3.141592653589793115997963468544185161590576171875f
-#define DEG_TO_RAD(deg) (PI / 180.0f * (deg))
+#define DEG_TO_RAD(deg) ((PI) / 180.0f * (deg))
 
 #pragma warning(disable:4201)
 union vector3 {
