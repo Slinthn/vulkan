@@ -24,7 +24,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     if (severity & check_bits) {
 #ifdef SLN_WIN64
         OutputDebugString(callback_data->pMessage);
-        OutputDebugString("\n");
+        OutputDebugString("\n\n");
 #endif
 //#ifdef SLN_X11
         FILE *file = fopen("debug.txt", "a");

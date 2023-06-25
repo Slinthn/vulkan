@@ -7,32 +7,19 @@ layout(location=2) in vec2 texture;
 layout(location=0) out vec2 tex;
 layout(location=1) out vec4 shadow_tex;
 
-layout(set=0, binding=0) uniform world_information {
-    mat4 projection;
-    mat4 view;
-    mat4 camera_projection;
-    mat4 camera_view;
-} world;
-
-layout(set=0, binding=1) uniform object_information {
-    mat4[100] model;
-} object;
-
-layout(push_constant) uniform object_index {
-    int index;
-} index;
+#include "common.glsl"
 
 void main(
     void
 ){
     gl_Position = world.projection
         * inverse(world.view)
-        * object.model[index.index]
+        * index.model
         * vec4(position.x, -position.y, position.z, 1);
 
     shadow_tex = world.camera_projection
         * inverse(world.camera_view)
-        * object.model[index.index]
+        * index.model
         * vec4(position.x, -position.y, position.z, 1);
 
     tex = texture;

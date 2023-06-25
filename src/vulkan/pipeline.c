@@ -11,16 +11,17 @@ VkPipelineLayout vk_create_pipeline_layout(
     VkDescriptorSetLayout *set_layouts,
     uint32_t set_layout_count
 ){
-    VkPushConstantRange push_constant = {0};
-    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constant.size = sizeof(struct vk_push_constant0);
+    VkPushConstantRange push_constant[1] = {0};
+    push_constant[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+        | VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_constant[0].size = sizeof(struct vk_push_constant0);
 
     VkPipelineLayoutCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     create_info.setLayoutCount = set_layout_count;
     create_info.pSetLayouts = set_layouts;
-    create_info.pushConstantRangeCount = 1;
-    create_info.pPushConstantRanges = &push_constant;
+    create_info.pushConstantRangeCount = SIZEOF_ARRAY(push_constant);
+    create_info.pPushConstantRanges = push_constant;
 
     VkPipelineLayout pipeline;
     vkCreatePipelineLayout(device, &create_info, 0, &pipeline);

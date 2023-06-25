@@ -3,6 +3,7 @@ struct sm_header {
     uint8_t signature[4];
     uint32_t vertex_count;
     uint32_t index_count;
+    union vector4 colour;
 };
 #pragma pack(pop)
 

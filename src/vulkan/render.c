@@ -39,8 +39,8 @@ void vk_render_set_viewport(
  */
 int32_t vk_render_begin(
     struct graphics_state *state,
-    struct vk_uniform_buffer0 *buffer0,
-    struct vk_uniform_buffer1 *buffer1
+    struct vk_uniform_buffer0 *buffer0/*,
+    struct vk_uniform_buffer1 *buffer1*/
 ){
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
         UINT64_MAX);
@@ -70,7 +70,7 @@ int32_t vk_render_begin(
         1, &state->descriptor_set, 0, 0);
 
     vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
-    vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
+    //vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
     return 0;
 }
 
@@ -170,10 +170,13 @@ void vk_render_end(
     vkCmdEndRenderPass(state->command_buffer);
     vkEndCommandBuffer(state->command_buffer);
 
+    VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
     VkSubmitInfo submit_info = {0};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = 1;
     submit_info.pWaitSemaphores = &state->image_ready_semaphore;
+    submit_info.pWaitDstStageMask = &stage_flags;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &state->command_buffer;
     submit_info.signalSemaphoreCount = 1;
@@ -215,17 +218,14 @@ void sln_draw_model(
         model.index_buffer.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdPushConstants(state->command_buffer, state->pipeline_layout,
-        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(struct vk_push_constant0),
-        constant);
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+        sizeof(struct vk_push_constant0), constant);
 
-    // TODO: temporary
-    //vkCmdBindDescriptorSets(state->command_buffer,
-    //    VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
-    //    1, &texture.set, 0, 0);
+    VkDescriptorSet sets[] = {texture.set, state->shadow_set};
 
     vkCmdBindDescriptorSets(state->command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 2,
-        1, &state->shadow_set, 0, 0);
+        VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
+        SIZEOF_ARRAY(sets), sets, 0, 0);
 
     vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
         0, 0, 0);
@@ -241,7 +241,19 @@ void graphics_render_all_objects(
 
         struct vk_model model = *objects[i].model;
         struct vk_texture texture = *objects[i].texture;
-        state->push_constant_list.constants[i].index = i;
+
+        if (model.colour.x != 0 || model.colour.y != 0 || model.colour.z != 0
+            || model.colour.w != 0) {
+            state->push_constant_list.constants[i].flags |=
+                OBJECT_FLAG_COLOURED;
+            state->push_constant_list.constants[i].colour.x = model.colour.x;
+            state->push_constant_list.constants[i].colour.y = model.colour.y;
+            state->push_constant_list.constants[i].colour.z = model.colour.z;
+            state->push_constant_list.constants[i].colour.w = model.colour.w;
+        }
+
+        mat4_transform(&state->push_constant_list.constants[i].model,
+            objects[i].transform);
         sln_draw_model(state, model, texture,
             &state->push_constant_list.constants[i]);
     }
@@ -274,14 +286,8 @@ void graphics_render(
 
     mat4_transform(&buf0.camera_view, camera_view);
 
-    // Constant buffer 1
-    struct vk_uniform_buffer1 buf1 = {0};
-    for (uint32_t i = 0; i < VK_MAX_OBJECTS; i++)
-        if (world.objects[i].flags & VK_FLAG_EXISTS)
-            mat4_transform(&buf1.model[i], world.objects[i].transform);
-
     // Render
-    if (vk_render_begin(state, &buf0, &buf1))
+    if (vk_render_begin(state, &buf0))
         return;
 
     vk_render_shadow(state);

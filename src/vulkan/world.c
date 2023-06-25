@@ -11,8 +11,19 @@ struct vk_model graphics_load_sm(
     VkPhysicalDevice physical_device,
     char *filename
 ){
+    struct vk_model model = {0};
+
     struct sln_file file = sln_read_file(filename, 1);
     struct sm_header *header = (struct sm_header *)file.data;
+
+    //model.colour = header->colour;  // TODO: double check. does this set
+                                    // the pointer, or the values themselves?
+                                    // Bad if pointer...
+    
+    model.colour.x = header->colour.x;
+    model.colour.y = header->colour.y;
+    model.colour.z = header->colour.z;
+    model.colour.w = header->colour.w;
 
     struct vk_vertex *vertex_data =
         (struct vk_vertex *)((uint64_t)header + sizeof(struct sm_header));
@@ -20,8 +31,6 @@ struct vk_model graphics_load_sm(
     uint64_t index_offset = (uint64_t)vertex_data
         + header->vertex_count * sizeof(struct vk_vertex);
     uint32_t *index_data = (uint32_t *)index_offset;
-
-    struct vk_model model = {0};
 
     model.vertex_buffer = vk_create_vertex_buffer(device, physical_device,
         vertex_data, sizeof(struct vk_vertex) * header->vertex_count);

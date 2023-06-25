@@ -32,17 +32,11 @@ VkDescriptorSetLayout vk_create_descriptor_set_layout0(
     VkDevice device
 ){
     // Uniform buffer 0
-    VkDescriptorSetLayoutBinding bind[2] = {0};
+    VkDescriptorSetLayoutBinding bind[1] = {0};
     bind[0].binding = 0;
     bind[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bind[0].descriptorCount = 1;
     bind[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    // Uniform buffer 1
-    bind[1].binding = 1;
-    bind[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bind[1].descriptorCount = 1;
-    bind[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     return vk_create_descriptor_set_layout(device, bind, SIZEOF_ARRAY(bind));
 }
@@ -79,7 +73,7 @@ VkDescriptorPool vk_create_descriptor_pool(
 ){
     VkDescriptorPoolSize size[2] = {0};
     size[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    size[0].descriptorCount = 2;  // TODO: this is the two uniform buffers
+    size[0].descriptorCount = 1;  // TODO: the one uniform buffer
 
     size[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     size[1].descriptorCount = 10;  // TODO: random number
@@ -126,37 +120,25 @@ VkDescriptorSet vk_allocate_descriptor_sets(
  * 
  * @param device Vulkan device
  * @param buffer0 Buffer for uniform buffer 0
- * @param buffer1 Buffer for uniform buffer 1
  * @param set Descriptor set
  */
 void vk_update_descriptor_set0(
     VkDevice device,
     VkBuffer buffer0,
-    VkBuffer buffer1,
+    //VkBuffer buffer1,
     VkDescriptorSet set
 ){
-    VkDescriptorBufferInfo buffer_info[2] = {0};
+    VkDescriptorBufferInfo buffer_info[1] = {0};
     buffer_info[0].buffer = buffer0;
     buffer_info[0].offset = 0;
     buffer_info[0].range = VK_WHOLE_SIZE;
 
-    buffer_info[1].buffer = buffer1;
-    buffer_info[1].offset = 0;
-    buffer_info[1].range = VK_WHOLE_SIZE;
-
-    VkWriteDescriptorSet write[2] = {0};
+    VkWriteDescriptorSet write[1] = {0};
     write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write[0].dstSet = set;
     write[0].descriptorCount = 1;
     write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write[0].pBufferInfo = &buffer_info[0];
-
-    write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write[1].dstSet = set;
-    write[1].dstBinding = 1;
-    write[1].descriptorCount = 1;
-    write[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write[1].pBufferInfo = &buffer_info[1];
 
     vkUpdateDescriptorSets(device, SIZEOF_ARRAY(write), write, 0, 0);
 }

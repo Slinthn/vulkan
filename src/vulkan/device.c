@@ -78,6 +78,8 @@ VkPhysicalDevice vk_select_suitable_physical_device(
         if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
             physical_device = device_check;
             break;
+        } else if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+            physical_device = device_check;
         }
     }
 

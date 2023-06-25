@@ -71,7 +71,7 @@ void sln_init(
 ){
     app->game.graphics = graphics_init(surface);
 
-    audio_init();
+    // TODO: tmp audio_init();
 
     app->resources.world = sln_load_sw("world.sw");
 
@@ -79,7 +79,7 @@ void sln_init(
         app->resources.world);
     app->game.physics_world = physics_load_sw(app->resources.world);
 
-    app->game.physics_world.player.dimension = (union vector3){0.5f, 3, 0.5f};
+    app->game.physics_world.player.dimension = (union vector3){0.5f, 6, 0.5f};
 }
 
 /**

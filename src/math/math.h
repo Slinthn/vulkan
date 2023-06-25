@@ -2,6 +2,15 @@
 #define DEG_TO_RAD(deg) ((PI) / 180.0f * (deg))
 
 #pragma warning(disable:4201)
+union vector4 {
+    float comp[4];
+    struct {
+        float x, y, z, w;
+    };
+};
+#pragma warning(default:4201)
+
+#pragma warning(disable:4201)
 union vector3 {
     float comp[3];
     struct {

@@ -47,6 +47,7 @@ struct vk_uniform_buffer {
 };
 
 struct vk_model {
+    union vector4 colour;
     struct vk_buffer vertex_buffer;
     struct vk_index_buffer index_buffer;
 };
@@ -61,15 +62,15 @@ struct vk_uniform_buffer0 {
 };
 #pragma pack(pop)
 
-#pragma pack(push, 1)
-struct vk_uniform_buffer1 {
-    union matrix4 model[100];  // TODO: random number
-};
-#pragma pack(pop)
+// TODO: implement these
+#define OBJECT_FLAG_TEXTURED 0x1
+#define OBJECT_FLAG_COLOURED 0x2
 
 #pragma pack(push, 1)
 struct vk_push_constant0 {
-    uint32_t index;
+    union matrix4 model;
+    union vector4 colour;
+    uint32_t flags;
 };
 #pragma pack(pop)
 

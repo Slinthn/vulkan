@@ -59,11 +59,8 @@ struct graphics_state graphics_init(
     s.uniform_buffer0 = vk_create_uniform_buffer(s.device, s.physical_device,
         sizeof(struct vk_uniform_buffer0));
 
-    s.uniform_buffer1 = vk_create_uniform_buffer(s.device, s.physical_device,
-        sizeof(struct vk_uniform_buffer1));
-
     vk_update_descriptor_set0(s.device, s.uniform_buffer0.buffer.buffer,
-        s.uniform_buffer1.buffer.buffer, s.descriptor_set);
+        s.descriptor_set);
 
     s.pipeline_layout = vk_create_pipeline_layout(s.device, s.set_layout,
         SIZEOF_ARRAY(s.set_layout));
