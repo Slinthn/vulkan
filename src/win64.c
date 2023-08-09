@@ -1,5 +1,6 @@
 #pragma warning(push, 0)
 #define _CRT_SECURE_NO_WARNINGS
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <hidusage.h>
 #include <math.h>
@@ -133,6 +134,9 @@ int APIENTRY WinMain(
     (void)cmd;
     (void)show;
 
+    WSADATA data;
+    WSAStartup(MAKEWORD(2, 2), &data);
+
     struct sln_app app = {0};
     struct graphics_surface surface = {0};
     surface.hinstance = hinstance;
@@ -153,6 +157,7 @@ int APIENTRY WinMain(
     sln_init(&app, surface);
 
     CreateThread(0, 0, win_game_loop, &app, 0, 0);
+    CreateThread(0, 0, packet_handler, &app, 0, 0);
 
     while (1) {
         MSG msg;
