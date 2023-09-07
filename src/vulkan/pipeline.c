@@ -51,7 +51,7 @@ VkPipeline vk_create_graphics_pipeline(
     bind_desc.stride = sizeof(struct vk_vertex);
     bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription attributes[3] = {0};
+    VkVertexInputAttributeDescription attributes[4] = {0};
     attributes[0].location = 0;
     attributes[0].binding = 0;
     attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -62,10 +62,22 @@ VkPipeline vk_create_graphics_pipeline(
     attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributes[1].offset = sizeof(float) * 3;
 
+#if 0
     attributes[2].location = 2;
     attributes[2].binding = 0;
     attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
     attributes[2].offset = sizeof(float) * 6;
+#endif
+
+    attributes[2].location = 2;
+    attributes[2].binding = 0;
+    attributes[2].format = VK_FORMAT_R8G8B8A8_SINT;
+    attributes[2].offset = sizeof(float) * 6;
+
+    attributes[3].location = 3;
+    attributes[3].binding = 0;
+    attributes[3].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attributes[3].offset = sizeof(float) * 6 + sizeof(char) * 4;
 
     VkPipelineShaderStageCreateInfo stages[] = {
         vertex_stage,

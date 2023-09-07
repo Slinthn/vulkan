@@ -26,6 +26,14 @@ struct simg_header {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+struct sa_header {
+    uint8_t signature[4];
+    uint32_t bone_count;
+    uint32_t keyframe_count;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
 struct sw_model {
     char filename[20];
 };

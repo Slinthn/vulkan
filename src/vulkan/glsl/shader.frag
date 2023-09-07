@@ -2,6 +2,7 @@
 
 layout(location=0) in vec2 tex;
 layout(location=1) in vec4 shadow_tex;
+layout(location=2) in vec4 o_pos;
 
 layout(location=0) out vec4 final_colour;
 
@@ -32,7 +33,7 @@ void main(
     final_colour = texture(samp, tex) * shade;
 */
 
-    final_colour = vec4(0, 0, 0, 1);
+    final_colour = vec4(o_pos.xyz / 100.0f, 1);
 
     /*if ((index.flags & OBJECT_FLAG_TEXTURED) != 0) {
         final_colour = texture(samp, tex);

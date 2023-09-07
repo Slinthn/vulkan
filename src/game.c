@@ -62,6 +62,7 @@ struct sln_state {
 
 struct sln_resources {
     struct sw_world world;
+    struct vk_model terrain;
 };
 
 struct sln_app {
@@ -73,95 +74,56 @@ struct sln_app {
     struct sln_resources resources;
 };
 
+#include "array.c"
 #include "vulkan/world.c"
 #include "vulkan/render.c"
 #include "../common/packet.c"
+#include "packet.c"
 
-struct sln_online_player *get_online_player(struct sln_state *state, uint32_t player_id) {
-    for (uint32_t i = 0; i < MAX_ONLINE_PLAYERS; i++) {
-        struct sln_online_player *op = &state->world.online_players[i];
-        if (op->flags & SLN_ONLINE_PLAYER_F_ONLINE && op->player_id == player_id)
-            return op;
-    }
-    return 0;
-}
+struct vk_model create_terrain(struct graphics_state *gs) {
+    struct vk_model res = {0};
 
-void packet_player_add(struct packet_player_add *packet, struct sln_state *state) {
-    if (packet->player_id == 0 || get_online_player(state, packet->player_id) != 0)
-        return;
+#define TERRAIN_SIZE 100
 
-    struct sln_online_player *available = 0;
+    struct vk_vertex *vert = malloc(TERRAIN_SIZE * TERRAIN_SIZE * sizeof(struct vk_vertex));
+    uint32_t indices_size = (TERRAIN_SIZE - 1) * (TERRAIN_SIZE - 1) * 6;
+    uint32_t *indices = malloc(indices_size * sizeof(uint32_t));
 
-    for (uint32_t i = 0; i < MAX_ONLINE_PLAYERS; i++) {
-        struct sln_online_player *op = &state->world.online_players[i];
-        if (!(op->flags & SLN_ONLINE_PLAYER_F_ONLINE)) {
-            available = op;
-            break;
+    float gradient = 0;
+    for (uint32_t i = 0; i < TERRAIN_SIZE; i++) {
+        for (uint32_t j = 0; j < TERRAIN_SIZE; j++) {
+#if 1
+            struct vk_vertex *v = &vert[i * TERRAIN_SIZE + j];
+            *v = (struct vk_vertex){0};
+            v->position = (union vector3){(float)i, 11 * rand() / (float)RAND_MAX, (float)j};
+            v->normal = (union vector3){0, 1, 0};
+
+            gradient += 0.01f;
+#endif
         }
+        gradient -= 0.2f;
     }
 
-    if (!available)
-        return;
+    uint32_t counter = 0;
+    for (uint32_t i = 0; i < indices_size; i += 6) {
+#if 1
+        if ((counter + 1) % TERRAIN_SIZE == 0)
+            counter += 1;
 
-    available->flags = SLN_ONLINE_PLAYER_F_ONLINE;
-    available->player_id = packet->player_id;
-}
-
-void packet_player_remove(struct packet_player_remove *packet, struct sln_state *state) {
-    if (packet->player_id == 0)
-        return;
-
-    struct sln_online_player *player = get_online_player(state, packet->player_id);
-    if (!player)
-        return;
-
-    *player = (struct sln_online_player){0};
-}
-
-void packet_player_move(struct packet_player_move *pk, struct sln_state *state) {
-    if (pk->player_id == 0)
-        return;
-
-    struct sln_online_player *player = get_online_player(state, pk->player_id);
-    if (!player)
-        return;
-
-    player->tf.position.x = pk->position[0];
-    player->tf.position.y = pk->position[1];
-    player->tf.position.z = pk->position[2];
-}
-
-DWORD packet_handler(void *data) {
-    struct sln_app *app = (struct sln_app *)data;
-    while (1) {
-        int8_t buffer[512] = {0};
-        recv(app->sockfd, buffer, sizeof(buffer), 0);
-        
-        struct packet_header *header = (struct packet_header *)buffer;
-        switch (header->packet_id) {
-        case PACKET_SERVER_PLAYER_ADD: {
-            packet_player_add((struct packet_player_add *)buffer, &app->game);
-        } break;
-        case PACKET_SERVER_PLAYER_REMOVE: {
-            packet_player_remove((struct packet_player_remove *)buffer, &app->game);
-        } break;
-        case PACKET_SERVER_PLAYER_MOVE: {
-            packet_player_move((struct packet_player_move *)buffer, &app->game);
-        } break;
-        }
+        indices[i] = counter + 0;
+        indices[i + 2] = counter + 1;
+        indices[i + 1] = counter + 0 + TERRAIN_SIZE;
+        indices[i + 3] = counter + 0 + TERRAIN_SIZE;
+        indices[i + 5] = counter + 1;
+        indices[i + 4] = counter + 1 + TERRAIN_SIZE;
+        counter++;
+#endif
     }
-    return 0;
-}
 
-void connect_server(struct sln_app *app) {
-    PADDRINFOA addr_info;
-    getaddrinfo("vulkan.slin.ie", 0, 0, &addr_info);
+    res.vertex_buffer = vk_create_vertex_buffer(gs->device, gs->physical_device, vert, sizeof(struct vk_vertex) * TERRAIN_SIZE * TERRAIN_SIZE);
+    res.index_buffer = vk_create_index_buffer(gs->device, gs->physical_device, indices, indices_size);
 
-    struct sockaddr_in *tmp = (struct sockaddr_in *)addr_info->ai_addr;
-    tmp->sin_port = htons(PORT);
-
-    app->sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    connect(app->sockfd, (struct sockaddr *)tmp, sizeof(struct sockaddr_in));
+    return res;
 }
 
 /**
@@ -173,18 +135,39 @@ void sln_init(
     struct sln_app *app,
     struct graphics_surface surface
 ){
-    connect_server(app);
+    // TODO: tmp connect_server(app);
     app->game.graphics = graphics_init(surface);
+
+    app->game.graphics.anim = load_animation("armature.sa");
 
     // TODO: tmp audio_init();
 
-    app->resources.world = sln_load_sw("world.sw");
+    //app->resources.world = sln_load_sw("world.sw");
+    app->resources.world.model_count = 1;
+    app->resources.world.models[0].filename[0] = 'f';
+    app->resources.world.models[0].filename[1] = 'r';
+    app->resources.world.models[0].filename[2] = 'o';
+    app->resources.world.models[0].filename[3] = 'g';
+    app->resources.world.models[0].filename[4] = 'g';
+    app->resources.world.models[0].filename[5] = 'y';
+    app->resources.world.models[0].filename[6] = '.';
+    app->resources.world.models[0].filename[7] = 's';
+    app->resources.world.models[0].filename[8] = 'm';
+
+    app->resources.world.object_count = 1;
+    app->resources.world.objects[0].model_index = 0;
+    app->resources.world.objects[0].texture_index = 0;
+    app->resources.world.objects[0].scale[0] = 1;
+    app->resources.world.objects[0].scale[1] = 1;
+    app->resources.world.objects[0].scale[2] = 1;
 
     app->game.graphics_world = graphics_load_sw(app->game.graphics,
         app->resources.world);
     app->game.physics_world = physics_load_sw(app->resources.world);
 
     app->game.physics_world.player.dimension = (union vector3){0.5f, 6, 0.5f};
+
+    app->resources.terrain = create_terrain(&app->game.graphics);
 }
 
 /**
@@ -207,6 +190,7 @@ void sln_player(
     player->tf.position.y = -5;
     player->tf.scale = (union vector3){1, 1, 1};
 
+#if 1
     player->tf.rotation.y += look.x / 80.0f;
     player->tf.rotation.x += -look.y / 80.0f;  // TODO: sensitivity
 
@@ -214,21 +198,7 @@ void sln_player(
         player->tf.rotation.x = DEG_TO_RAD(90);
     else if (player->tf.rotation.x < -DEG_TO_RAD(90))
         player->tf.rotation.x = -DEG_TO_RAD(90);
-}
-
-void send_move_packet(struct sln_app *app) {
-    struct packet_client_player_move pk = {0};
-    pk.header.packet_id = PACKET_CLIENT_PLAYER_MOVE;
-    pk.position[0] = app->game.world.player.tf.position.x;
-    pk.position[1] = app->game.world.player.tf.position.y;
-    pk.position[2] = app->game.world.player.tf.position.z;
-    send(app->sockfd, (const char *)&pk, sizeof(pk), 0);
-}
-
-void send_heartbeat_packet(struct sln_app *app) {
-    struct packet_client_heartbeat pk = {0};
-    pk.header.packet_id = PACKET_CLIENT_HEARTBEAT;
-    send(app->sockfd, (const char *)&pk, sizeof(pk), 0);
+#endif
 }
 
 /**
@@ -253,6 +223,7 @@ void sln_update(
     game->world.player.tf.position.y = game->physics_world.player.centre.y;
     game->world.player.tf.position.z = game->physics_world.player.centre.z;
 
+#if 0
     // TODO: temp, objects 50+ are online players. if more than 50 players,
     // then fuck.
     for (uint32_t i = 0; i < MAX_ONLINE_PLAYERS; i++) {
@@ -273,11 +244,28 @@ void sln_update(
         game->graphics_world.objects[50 + i].transform.scale.y = 1;
         game->graphics_world.objects[50 + i].transform.scale.z = 1;
     }
+#endif
 
-    graphics_render(&game->graphics, *app, game->world.player.tf,
-        game->graphics_world);
+    struct transform tf = {0};
+    tf.position.x = game->world.player.tf.position.x;
+    tf.position.z = game->world.player.tf.position.z;
+    tf.position.y = -20;
+    tf.rotation.x = game->world.player.tf.rotation.x;
+    tf.rotation.y = game->world.player.tf.rotation.y;
+    tf.rotation.z = game->world.player.tf.rotation.z;
+    //tf.rotation.x = DEG_TO_RAD(-90);
+    tf.scale = (union vector3){1, 1, 1};
 
-    send_heartbeat_packet(app);
-    send_move_packet(app);
+    game->graphics_world.objects[50].model = &app->resources.terrain;
+    game->graphics_world.objects[50].texture = &game->graphics_world.textures[0];
+    game->graphics_world.objects[50].transform.position = (union vector3){0, -5, 0};
+    game->graphics_world.objects[50].transform.rotation = (union vector3){0};
+    game->graphics_world.objects[50].transform.scale = (union vector3){1, 1, 1};
+    game->graphics_world.objects[50].flags = VK_FLAG_EXISTS;
+
+    graphics_render(&game->graphics, *app, tf, game->graphics_world);
+
+    //send_heartbeat_packet(app);
+    //send_move_packet(app);
 }
 

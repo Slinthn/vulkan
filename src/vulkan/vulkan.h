@@ -52,6 +52,12 @@ struct vk_model {
     struct vk_index_buffer index_buffer;
 };
 
+struct vk_anim {
+    uint32_t bone_count;
+    uint32_t keyframe_count;
+    union matrix4 *bones;
+};
+
 struct vk_shader {
     VkPipeline pipeline;
 };
@@ -59,6 +65,14 @@ struct vk_shader {
 #pragma pack(push, 1)
 struct vk_uniform_buffer0 {
     union matrix4 projection, view, camera_projection, camera_view;
+};
+#pragma pack(pop)
+
+#define MAX_BONES 100
+
+#pragma pack(push, 1)
+struct vk_ub_anim {
+    union matrix4 bones[MAX_BONES];
 };
 #pragma pack(pop)
 
@@ -92,8 +106,9 @@ struct vk_texture {
 #pragma pack(push, 1)
 struct vk_vertex {
     union vector3 position;
-    union vector2 texture;
     union vector3 normal;
+    uint8_t bones[4];
+    float bone_weights[4];
 };
 #pragma pack(pop)
 
@@ -147,9 +162,8 @@ struct graphics_state {
     VkPipelineLayout pipeline_layout;
     VkDescriptorSetLayout set_layout[3];
     VkDescriptorSet descriptor_set;
-    struct vk_uniform_buffer uniform_buffer0, uniform_buffer1;
+    struct vk_uniform_buffer uniform_buffer0, ub_anim;
     struct vk_texture texture;
-
 
     struct vk_push_contant0_list push_constant_list;
 
@@ -160,6 +174,8 @@ struct graphics_state {
     VkFramebuffer shadow_framebuffer;
     VkRenderPass shadow_render_pass;
     VkSampler shadow_sampler;
+
+    struct vk_anim anim;// TODO: tmp!!
 };
 
 #ifdef SLN_WIN64

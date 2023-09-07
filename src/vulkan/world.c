@@ -124,3 +124,17 @@ struct graphics_world graphics_load_sw(
 
     return gworld;
 }
+
+struct vk_anim load_animation(char *filename) {
+    struct sln_file file = sln_read_file(filename, 1);
+    struct sa_header *header = (struct sa_header *)file.data;
+
+    struct vk_anim anim = {0};
+    anim.bone_count = header->bone_count;
+    anim.keyframe_count = header->keyframe_count;
+    anim.bones = (union matrix4 *)((uint64_t)file.data + sizeof(struct sa_header));
+
+    // TODO: file is never closed. is this ok?
+
+    return anim;
+}

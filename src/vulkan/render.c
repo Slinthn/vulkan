@@ -39,8 +39,8 @@ void vk_render_set_viewport(
  */
 int32_t vk_render_begin(
     struct graphics_state *state,
-    struct vk_uniform_buffer0 *buffer0/*,
-    struct vk_uniform_buffer1 *buffer1*/
+    struct vk_uniform_buffer0 *buffer0,
+    struct vk_ub_anim *ub_anim
 ){
     vkWaitForFences(state->device, 1, &state->render_ready_fence, 1,
         UINT64_MAX);
@@ -70,7 +70,7 @@ int32_t vk_render_begin(
         1, &state->descriptor_set, 0, 0);
 
     vk_update_uniform_buffer(state->uniform_buffer0, buffer0);
-    //vk_update_uniform_buffer(state->uniform_buffer1, buffer1);
+    vk_update_uniform_buffer(state->ub_anim, ub_anim);
     return 0;
 }
 
@@ -221,11 +221,15 @@ void sln_draw_model(
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
         sizeof(struct vk_push_constant0), constant);
 
+#if 0
     VkDescriptorSet sets[] = {texture.set, state->shadow_set};
 
-    vkCmdBindDescriptorSets(state->command_buffer,
+    vkCmdBindDescriptorSets(state->command_buffer,5
         VK_PIPELINE_BIND_POINT_GRAPHICS, state->pipeline_layout, 1,
         SIZEOF_ARRAY(sets), sets, 0, 0);
+#else
+    (void)texture;
+#endif
 
     vkCmdDrawIndexed(state->command_buffer, model.index_buffer.index_count, 1,
         0, 0, 0);
@@ -286,15 +290,40 @@ void graphics_render(
 
     mat4_transform(&buf0.camera_view, camera_view);
 
+    static uint32_t timer = 0;
+
+    static uint32_t anim_frame = 0; // TODO: !!!!!!
+    timer++;
+    if (timer == 1) {
+        anim_frame++;
+        if (anim_frame == state->anim.keyframe_count)
+            anim_frame = 0;
+        timer = 0;
+    }
+
+    struct vk_ub_anim ub_anim = {0};
+#if 1
+    for (uint32_t i = 0; i < MAX_BONES; i++) {
+        mat4_identity(&ub_anim.bones[i]);
+    }
+#endif
+
+    for (uint32_t i = 0; i < state->anim.bone_count; i++) {
+        uint64_t offset = i * state->anim.keyframe_count + anim_frame;
+        union matrix4 mat = state->anim.bones[offset];
+        ub_anim.bones[i] = mat;
+    }
+
     // Render
-    if (vk_render_begin(state, &buf0))
+    if (vk_render_begin(state, &buf0, &ub_anim))
         return;
 
     vk_render_shadow(state);
     graphics_render_all_objects(state, world.objects);
-    vk_render_main(state, (float[4]){1, 0, 1, 1}, state->extent.width,
+    vk_render_main(state, (float[4]){0.9f, 0.9f, 0.9f, 1}, state->extent.width,
         state->extent.height);
     graphics_render_all_objects(state, world.objects);
 
     vk_render_end(state);
 }
+
