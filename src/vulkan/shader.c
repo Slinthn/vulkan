@@ -59,7 +59,7 @@ struct vk_shader vk_create_shader(
     vs.module = vk_create_shader_module(device, vertex_data, vertex_size);
     fs.module = vk_create_shader_module(device, fragment_data, fragment_size);
 
-     shader.pipeline = vk_create_graphics_pipeline(device, vs, fs, render_pass,
+    shader.pipeline = vk_create_graphics_pipeline(device, vs, fs, render_pass,
         pipeline_layout, culling);
 
     return shader;

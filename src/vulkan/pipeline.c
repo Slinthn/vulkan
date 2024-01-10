@@ -28,6 +28,28 @@ VkPipelineLayout vk_create_pipeline_layout(
     return pipeline;
 }
 
+VkPipelineLayout vk_create_terrain_pipeline_layout(
+    VkDevice device,
+    VkDescriptorSetLayout *set_layouts,
+    uint32_t set_layout_count
+){
+    VkPushConstantRange push_constant[1] = {0};
+    push_constant[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+        | VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_constant[0].size = sizeof(struct vk_push_constant0);
+
+    VkPipelineLayoutCreateInfo create_info = {0};
+    create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    create_info.setLayoutCount = set_layout_count;
+    create_info.pSetLayouts = set_layouts;
+    create_info.pushConstantRangeCount = SIZEOF_ARRAY(push_constant);
+    create_info.pPushConstantRanges = push_constant;
+
+    VkPipelineLayout pipeline;
+    vkCreatePipelineLayout(device, &create_info, 0, &pipeline);
+    return pipeline;
+}
+
 /**
  * @brief Create a Vulkan graphics pipeline
  * 

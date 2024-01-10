@@ -8,6 +8,9 @@ layout(location=3) in vec4 bone_weights;
 layout(location=0) out vec2 tex;
 layout(location=1) out vec4 shadow_tex;
 layout(location=2) out vec4 o_position;
+layout(location=3) out vec3 o_normal;
+layout(location=4) out vec2 o_tex;
+
 
 #include "common.glsl"
 
@@ -42,4 +45,6 @@ void main(
         * vec4(position.x, -position.y, position.z, 1);
 
     o_position = vec4(position.xyz, 1);
+    o_normal = normal;
+    o_tex = position.xz;
 }

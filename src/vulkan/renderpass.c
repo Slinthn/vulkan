@@ -85,7 +85,7 @@ VkRenderPass vk_create_main_render_pass(
     subpass.pColorAttachments = &colour_reference;
     subpass.pDepthStencilAttachment = &depth_reference;
 
-    return vk_create_render_pass(device, att,  SIZEOF_ARRAY(att), &subpass);
+    return vk_create_render_pass(device, att, SIZEOF_ARRAY(att), &subpass);
 }
 
 VkRenderPass vk_create_shadow_render_pass(

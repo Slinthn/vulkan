@@ -80,47 +80,92 @@ struct sln_app {
 #include "../common/packet.c"
 #include "packet.c"
 
+#pragma pack(push, 1)
+struct st_header {
+    uint8_t signature[4];
+    uint32_t width, height;
+};
+#pragma pack(pop)
+
 struct vk_model create_terrain(struct graphics_state *gs) {
     struct vk_model res = {0};
 
-#define TERRAIN_SIZE 100
+    struct sln_file f = sln_read_file("terrain.st", 1);
+    struct st_header *head = (struct st_header *)f.data;
+    float *heights = (float *)((uint64_t)head + sizeof(struct st_header));
 
-    struct vk_vertex *vert = malloc(TERRAIN_SIZE * TERRAIN_SIZE * sizeof(struct vk_vertex));
-    uint32_t indices_size = (TERRAIN_SIZE - 1) * (TERRAIN_SIZE - 1) * 6;
+    struct vk_vertex *vert = malloc(head->width * head->height * sizeof(struct vk_vertex));
+    uint32_t indices_size = (head->width - 1) * (head->height - 1) * 6;
     uint32_t *indices = malloc(indices_size * sizeof(uint32_t));
 
-    float gradient = 0;
-    for (uint32_t i = 0; i < TERRAIN_SIZE; i++) {
-        for (uint32_t j = 0; j < TERRAIN_SIZE; j++) {
-#if 1
-            struct vk_vertex *v = &vert[i * TERRAIN_SIZE + j];
+    // Positions
+    for (uint32_t i = 0; i < head->width; i++) {
+        for (uint32_t j = 0; j < head->height; j++) {
+            struct vk_vertex *v = &vert[i * head->width + j];
             *v = (struct vk_vertex){0};
-            v->position = (union vector3){(float)i, 11 * rand() / (float)RAND_MAX, (float)j};
+            v->position = (union vector3){(float)i, heights[i * head->width + j] / 10.0f, (float)j};
             v->normal = (union vector3){0, 1, 0};
-
-            gradient += 0.01f;
-#endif
         }
-        gradient -= 0.2f;
+    }
+
+    // Normals
+    // Note, i don't care about the edge vertices as of right now.
+    for (uint32_t i = 1; i < head->width - 1; i++) {
+        for (uint32_t j = 1; j < head->height - 1; j++) {
+            struct vk_vertex *v0 = &vert[(i - 1) * head->width + j];
+            struct vk_vertex *v1 = &vert[(i + 1) * head->width + j];
+            struct vk_vertex *v2 = &vert[i * head->width + j - 1];
+            struct vk_vertex *v3 = &vert[i * head->width + j + 1];
+            struct vk_vertex *v = &vert[i * head->width + j];
+
+#if 0
+            union vector3 e0 = vec3_sub(v0->position, v->position);
+            union vector3 e1 = vec3_sub(v1->position, v->position);
+            union vector3 e2 = vec3_sub(v2->position, v->position);
+            union vector3 e3 = vec3_sub(v3->position, v->position);
+            union vector3 cross0 = vec3_cross(e0, e1);
+            union vector3 cross1 = vec3_cross(e0, e2);
+            union vector3 cross2 = vec3_cross(e0, e3);
+            union vector3 cross3 = vec3_cross(e1, e2);
+            union vector3 cross4 = vec3_cross(e1, e3);
+            union vector3 cross5 = vec3_cross(e2, e3);
+#endif
+            
+#if 0
+            union vector3 cross = vec3_add(cross0, cross1);
+            cross = vec3_add(cross, cross2);
+            cross = vec3_add(cross, cross3);
+            cross = vec3_add(cross, cross4);
+            cross = vec3_add(cross, cross5);
+            cross.y = 2;
+            cross = vec3_norm(cross);
+#endif
+
+            v->normal.x = v2->position.y - v3->position.y;
+            v->normal.z = v0->position.y - v1->position.y;
+            v->normal.y = 1;
+            v->normal = vec3_norm(v->normal);
+            //v->normal = cross;
+        }
     }
 
     uint32_t counter = 0;
     for (uint32_t i = 0; i < indices_size; i += 6) {
 #if 1
-        if ((counter + 1) % TERRAIN_SIZE == 0)
+        if ((counter + 1) % head->width == 0)
             counter += 1;
 
         indices[i] = counter + 0;
         indices[i + 2] = counter + 1;
-        indices[i + 1] = counter + 0 + TERRAIN_SIZE;
-        indices[i + 3] = counter + 0 + TERRAIN_SIZE;
+        indices[i + 1] = counter + 0 + head->width;
+        indices[i + 3] = counter + 0 + head->width;
         indices[i + 5] = counter + 1;
-        indices[i + 4] = counter + 1 + TERRAIN_SIZE;
+        indices[i + 4] = counter + 1 + head->width;
         counter++;
 #endif
     }
 
-    res.vertex_buffer = vk_create_vertex_buffer(gs->device, gs->physical_device, vert, sizeof(struct vk_vertex) * TERRAIN_SIZE * TERRAIN_SIZE);
+    res.vertex_buffer = vk_create_vertex_buffer(gs->device, gs->physical_device, vert, sizeof(struct vk_vertex) * head->width * head->height);
     res.index_buffer = vk_create_index_buffer(gs->device, gs->physical_device, indices, indices_size);
 
     return res;
@@ -249,7 +294,7 @@ void sln_update(
     struct transform tf = {0};
     tf.position.x = game->world.player.tf.position.x;
     tf.position.z = game->world.player.tf.position.z;
-    tf.position.y = -20;
+    tf.position.y = -40;
     tf.rotation.x = game->world.player.tf.rotation.x;
     tf.rotation.y = game->world.player.tf.rotation.y;
     tf.rotation.z = game->world.player.tf.rotation.z;

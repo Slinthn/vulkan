@@ -1,3 +1,12 @@
+void init_terrain_shader(struct graphics_state *s) {
+    struct sln_file terrain_vf = sln_read_file("terrain-v.spv", 4);
+    struct sln_file terrain_ff = sln_read_file("terrain-f.spv", 4);
+
+    //s->terrain_shader = vk_create_shader(s->device, s->render_pass, terrain_vf.data, terrain_vf.allocated_size, terrain_ff.data, terrain_ff.allocated_size, s.
+
+}
+
+
 /**
  * @brief Initialises Vulkan. Should be called after program starts. Creates
  *     everything in order to begin a Vulkan application
@@ -69,19 +78,30 @@ struct graphics_state graphics_init(
     s.pipeline_layout = vk_create_pipeline_layout(s.device, s.set_layout,
         SIZEOF_ARRAY(s.set_layout));
 
+    s.shadow_render_pass = vk_create_shadow_render_pass(s.device);
+
+
     // Load shader
     struct sln_file vertex_file = sln_read_file("shader-v.spv", 4);
     struct sln_file fragment_file = sln_read_file("shader-f.spv", 4);
     struct sln_file shadow_vertex_file = sln_read_file("shadow-v.spv", 4);
     struct sln_file shadow_fragment_file = sln_read_file("shadow-f.spv", 4);
-
     s.shader = vk_create_shader(s.device, s.render_pass, vertex_file.data,
         vertex_file.allocated_size, fragment_file.data,
         fragment_file.allocated_size, s.pipeline_layout, VK_CULL_MODE_BACK_BIT);
 
-    // TODO: tmp shadows
-    s.shadow_render_pass = vk_create_shadow_render_pass(s.device);
+    s.shadow_pipeline = vk_create_shader(s.device, s.shadow_render_pass,
+        shadow_vertex_file.data,
+        shadow_vertex_file.allocated_size, shadow_fragment_file.data,
+        shadow_fragment_file.allocated_size, s.pipeline_layout,
+        VK_CULL_MODE_FRONT_BIT).pipeline;
 
+    sln_close_file(vertex_file);
+    sln_close_file(fragment_file);
+    sln_close_file(shadow_vertex_file);
+    sln_close_file(shadow_fragment_file);
+
+    // TODO: tmp shadows
     s.shadow_image = vk_create_shadow_depth_buffer(s.device,
         s.physical_device);
 
@@ -93,12 +113,6 @@ struct graphics_state graphics_init(
     s.shadow_framebuffer = vk_create_framebuffer(s.device, ex,
         s.shadow_render_pass, &depth_view, 1);
 
-    s.shadow_pipeline = vk_create_shader(s.device, s.shadow_render_pass,
-        shadow_vertex_file.data,
-        shadow_vertex_file.allocated_size, shadow_fragment_file.data,
-        shadow_fragment_file.allocated_size, s.pipeline_layout,
-        VK_CULL_MODE_FRONT_BIT).pipeline;
-
     s.shadow_set = vk_allocate_descriptor_sets(s.device, s.pool,
         &s.set_layout[2], 1);
 
@@ -106,10 +120,6 @@ struct graphics_state graphics_init(
 
     vk_update_descriptor_set1(s.device, s.shadow_sampler, depth_view,
         s.shadow_set);
-
-    sln_close_file(vertex_file);
-    sln_close_file(fragment_file);
-    sln_close_file(shadow_fragment_file);
 
     return s;
 }

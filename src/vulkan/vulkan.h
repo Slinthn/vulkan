@@ -149,7 +149,7 @@ struct graphics_state {
     struct vk_image depth_image;
     VkImageView depth_view;
     struct vk_framebuffer framebuffers[SLN_FRAMEBUFFER_COUNT];
-    struct vk_shader shader;
+    struct vk_shader shader, terrain_shader;
     uint32_t current_image_index;
     uint32_t unused0;
     VkSampler sampler;
@@ -163,7 +163,6 @@ struct graphics_state {
     VkDescriptorSetLayout set_layout[3];
     VkDescriptorSet descriptor_set;
     struct vk_uniform_buffer uniform_buffer0, ub_anim;
-    struct vk_texture texture;
 
     struct vk_push_contant0_list push_constant_list;
 

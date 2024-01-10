@@ -277,7 +277,7 @@ void graphics_render(
     struct vk_uniform_buffer0 buf0 = {0};
     mat4_perspective(&buf0.projection,
         app.height / (float)app.width, DEG_TO_RAD(120),
-        0.1f, 100.0f);
+        0.1f, 1000.0f);
     mat4_transform(&buf0.view, view);
 
     mat4_orthographic(&buf0.camera_projection,
@@ -294,7 +294,7 @@ void graphics_render(
 
     static uint32_t anim_frame = 0; // TODO: !!!!!!
     timer++;
-    if (timer == 1) {
+    if (timer == 10) {
         anim_frame++;
         if (anim_frame == state->anim.keyframe_count)
             anim_frame = 0;
